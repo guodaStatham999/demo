@@ -1,3 +1,11 @@
-export default{
-    a:1,
+import { 
+    effect,
+} from './effect'
+import { 
+    reactive,
+} from './reactive'
+
+export {
+    reactive,
+    effect
 }

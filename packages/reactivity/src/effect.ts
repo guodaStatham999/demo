@@ -1,0 +1,7 @@
+function effect(){
+
+}
+
+export {
+    effect
+}

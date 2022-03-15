@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script src="../dist/reactivity.global.js"></script>
+    <!-- <script src="./reactivity.global.js"></script> -->
+    <script>
+        let {
+            reactive,
+            // effect, // 响应式的核心
+        } =  VueReactivity
+        let obj = {
+            time:1
+        }
+
+        // 问题1 // 已经在响应式里做了代理,相同对象直接返回,不用二次代理,所以是相同数据
+        // let state1 = reactive(obj)
+        // let state2 = reactive(obj)
+        // console.log(state1 === state2); 
+
+        // 问题2 // 已经做了响应式,不需要再次做代理
+        let state1 = reactive(obj)
+        console.log(reactive(state1) === state1);
+
+        // effect(()=>{
+        //     console.log(state.time,'响应式'); // 属性变化的时候,会从新执行绑定的响应式数据 => 也就是响应式核心,属性变化了,会从新渲染页面
+        // })
+        // console.log(state);
+        // setTimeout(()=>{
+        //     state.time = 200
+        // },1500)
+    </script>
+</body>
+</html>
