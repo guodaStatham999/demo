@@ -1,3 +1,6 @@
-export default {
-    a:1,
+function isObject(obj){
+    return typeof obj === 'object' && !Array.isArray(obj)
+}
+export  {
+    isObject
 }

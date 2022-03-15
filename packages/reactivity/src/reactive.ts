@@ -1,4 +1,4 @@
-import { isObject } from "最新vue3.2源码/core/packages/shared/src"
+import { isObject } from "../../shared/src"
 
 
 const enum ReactiveFlags {

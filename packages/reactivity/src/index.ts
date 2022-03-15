@@ -1,11 +1,11 @@
-import { 
+export { 
     effect,
 } from './effect'
-import { 
+export { 
     reactive,
 } from './reactive'
 
-export {
-    reactive,
-    effect
-}
+// export {
+//     reactive,
+//     effect
+// }
