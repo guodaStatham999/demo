@@ -7,6 +7,7 @@
     <title>Document</title>
 </head>
 <body>
+    <div id="app"></div>
     <script src="../dist/reactivity.global.js"></script>
     <!-- <script src="./reactivity.global.js"></script> -->
     <script>
@@ -15,20 +16,21 @@
             effect, // 响应式的核心
         } =  VueReactivity
         let obj = {
-            time:1
+            name:'tkf',
+            age:10,
+            address:'xxx'
         }
 
         let state = reactive(obj)
 
 
         effect(()=>{ // effect是默认执行一次,数据更新会再次更新
-            console.log(state.time,'响应式'); // 属性变化的时候,会从新执行绑定的响应式数据 => 也就是响应式核心,属性变化了,会从新渲染页面
+            app.innerHTML = state.name + '已经' + state.age + '岁了'// 属性变化的时候,会从新执行绑定的响应式数据 => 也就是响应式核心,属性变化了,会从新渲染页面
         })
 
-
-        // setTimeout(()=>{
-        //     state.time = 200
-        // },1500)
+        setTimeout(()=>{
+            state.age = 20
+        },1500)
     </script>
 </body>
 </html>

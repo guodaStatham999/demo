@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="app"></div>
+    <script src="../dist/reactivity.global.js"></script>
+    <!-- <script src="./reactivity.global.js"></script> -->
+
+
+    <!-- 
+        1. runner功能-让effect执行的返回结果是个函数,只要调用,立刻从新渲染(执行)effect函数
+        2. stop 功能-停止响应式
+     -->
+    <script>
+        let {
+            reactive,
+            effect, // 响应式的核心
+        } =  VueReactivity
+        let obj = {
+            name:'tkf',
+            age:10,
+            address:'xxx'
+        }
+
+        let state = reactive(obj)
+
+
+        let runner =  effect(()=>{ // effect是默认执行一次,数据更新会再次更新
+            console.log('ok');
+            app.innerHTML = state.name + '已经' + state.age + '岁了'// 属性变化的时候,会从新执行绑定的响应式数据 => 也就是响应式核心,属性变化了,会从新渲染页面
+        })
+        runner(); // 任何时刻执行,都会直接渲染
+        runner.effect.stop()
+        // setTimeout(()=>{
+        //     state.age = 20
+        // },1500)
+    </script>
+</body>
+</html>

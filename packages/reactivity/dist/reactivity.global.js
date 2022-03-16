@@ -3,6 +3,18 @@ var VueReactivity = (function (exports) {
 
     const effectStack = []; // effect: 目的是保证effect可以存储正确的effect执行关系
     let activeEffect; // 当前激活的effect
+    function cleanUpEffect(effect) {
+        console.log(effect);
+        let { deps } = effect;
+        console.log(targetMap);
+        for (let dep of deps) {
+            dep.delete(effect); // 老师解释: 让属性对应的effect移除掉, 就不会触发这个effect从新执行了.
+            // 我的想法: 就是把当前的deps里的每个set里,删除this(effect). 
+            // 解释: 每个dep就是set
+            // 后面再理解: deps就是属性对应的set,删除掉属性里的set,以后再次调用属性,就不会触发对应的effect执行(因为已经删除了)
+        }
+        console.log(targetMap);
+    }
     class ReactiveEffect {
         constructor(fn) {
             this.fn = fn;
@@ -14,8 +26,8 @@ var VueReactivity = (function (exports) {
             if (!this.active) { // 非激活状态会执行fn函数
                 return this.fn();
             }
-            // 建立属性和effect之间的关系
             /*
+            建立属性和effect之间的关系
             伪代码: 代码描述语言,方便被不同语言开发者所理解.
             effect1(()=>{
                 state.name
@@ -37,17 +49,100 @@ var VueReactivity = (function (exports) {
 
             activeEffect = effect1 ,代码执行.
             */
-            console.log(333);
-            console.log(effectStack);
-            console.log(activeEffect);
-            debugger;
-            effectStack.push(activeEffect = this); // 初始化会调用run方法,this就是当前effect
-            this.fn(); // 这个函数执行的时候,就会触发属性访问,然后就会连锁触发proxy.get方法. 这个时候get里就可以得到当前effect是谁(因为先做的effectStack.push操作).
+            try {
+                if (!effectStack.includes(this)) { // 屏蔽同一个effect的执行\
+                    effectStack.push(activeEffect = this); // 初始化会调用run方法,this就是当前effect
+                    // 为了计算属性-添加的return
+                    return this.fn(); // 这个函数执行的时候,就会触发属性访问,然后就会连锁触发proxy.get方法. 这个时候get里就可以得到当前effect是谁(因为先做的effectStack.push操作).
+                }
+            }
+            finally {
+                // 等到函数执行完毕后,就把栈中最后一项返回
+                effectStack.pop(); // 最后一项删除掉,因为前面逻辑已经删除了
+                activeEffect = effectStack[effectStack.length - 1]; // 最后一项最为选中项
+            }
+        }
+        // 可以让effect
+        stop() {
+            // console.log(this,'stop');
+            // 让dep里的effect删除掉,就可以了
+            // effect.deps和属性没有关系
+            if (this.active) { // 非激活状态不会执行
+                cleanUpEffect(this); // 就是把当前收集的effect清理掉   再理解: 是把当前effect里记录的effect删除掉
+                this.active = false;
+            }
         }
     }
     function effect(fn) {
         let _effect = new ReactiveEffect(fn);
         _effect.run(); // 默认让fn执行一次
+        let runner = _effect.run.bind(_effect); // 需求: effect返回的函数任何时候执行,就会立刻从新渲染effect函数. 处理: 将effect的run方法返回,并且绑定this. 
+        runner.effect = _effect; // 使用一个属性存储实例,就可以直接使用实例上的原形方法.
+        return runner;
+    }
+    function isTracking() {
+        return activeEffect !== undefined;
+    }
+    let targetMap = new WeakMap();
+    // 收集effect
+    function track(target, key) {
+        /*
+        问题: 每次调用get,就是获取属性. 就可以得到target和key. 答案: 当时取值的this就是当时的effect,他就是依赖当前的effect
+        数据格式:
+        effect1(()=>{ // 只要访问属性的时候,这个时候记录当前的effect.
+            state.name
+            effect2(()=>{
+                state.age
+            })
+            state.c
+        })
+        */
+        // console.log(target, key, activeEffect);
+        /*
+        概念: 一个属性对应多个effect,一个effect依赖多个属性 => 多对多的关系
+        数据格式:  {  使用weakMap,对象做参数,里面属性还是个对象的参数
+                        对象: {
+                            某个属性: [ effect1, effect2 ]
+                        }
+                   }
+        */
+        if (!isTracking()) { // 需要是在effect里执行的target.xxx字段,才会有acctiveEffect,才是在effect里面操作或者修改值,这种才要收集.其他的选择字段并不需要. 就要return掉
+            return; // 双重取反 => 只要activeEffect是undefined就return
+        }
+        let depsMap = targetMap.get(target); // targetMap里面是否存储当前对象
+        if (!depsMap) {
+            targetMap.set(target, (depsMap = new Map()));
+        }
+        let dep = depsMap.get(key);
+        if (!dep) {
+            depsMap.set(key, (dep = new Set())); // {对象:{属性:set[]}}
+        }
+        let shouldTrack = !dep.has(activeEffect);
+        if (shouldTrack) { // 没有当前actvieEffect,就添加上
+            dep.add(activeEffect);
+            activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有effect,等到用的时候就知道是哪个effect了
+        }
+        // console.log(activeEffect.deps);
+    }
+    function trigger(target, key) {
+        console.log(target, key, 122);
+        let depsMap = targetMap.get(target);
+        if (!depsMap)
+            return; // 说明修改的属性根本没有依赖任何的effect
+        let deps = []; // 存储的是[set,set]=>多个set
+        if (key !== undefined) {
+            let set = depsMap.get(key);
+            deps.push(set);
+        }
+        let effects = [];
+        for (let dep of deps) {
+            effects.push(...dep); // 
+        }
+        for (let effect of effects) { // 把每个effect取出
+            if (effect !== activeEffect) { // 如果当前effect执行和要执行的effect是同一个,就不执行了,防止循环
+                effect.run(); // 执行effect,重新渲染数据
+            }
+        }
     }
 
     function isObject(obj) {
@@ -61,14 +156,18 @@ var VueReactivity = (function (exports) {
                 debugger;
                 return true;
             }
-            console.log(receiver, '代理对象本身? 目标对象是target,但是receiver是什么');
+            track(target, key);
             let res = Reflect.get(target, key, receiver); // 等价于target[key] 只不过使用Reflect.get获取,会有取值是否成功
             // 每次取值都可以收集当前值在哪个effect中
             return res;
         },
         set(target, key, value, receiver) {
+            let oldValue = target[key]; // 获取老值
             let res = Reflect.set(target, key, value, receiver); // Reflect.set会返回是否设置成功
-            // 每次改值都可以出发effect更新
+            if (oldValue !== value) { // 老值和新值不同,才触发更新
+                // 每次改值都可以出发effect更新
+                trigger(target, key); // 找到对应的effect,让他去执行更新
+            }
             return res;
         }
     };
