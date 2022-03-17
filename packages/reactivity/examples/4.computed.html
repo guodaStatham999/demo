@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script src="../dist/reactivity.global.js"></script>
+    <!-- <script src="./reactivity.global.js"></script> -->
+
+
+    <!-- 
+        1. 计算属性不会默认执行,而effect是会默认执行
+        2. 只有取值的时候会执行computed
+        3. 计算属性通过.value来取值
+        4. 多次取值,如果值没变化是不会多次执行,会直接返回结果--计算属性的缓存--利用一个_diaty字段,如果没变就一直用老的值,如果_diaty字段变化了,就会重新执行函数. 并且修改_dirty字段改为false. 返回值之后,只要不修改,就一直使用这个值
+        5. 可以传递一个函数,也可以传递属性访问器{get函数和set函数}
+            a. 实现是使用Object.definedProperty
+     -->
+    <script>
+        let {
+            reactive,
+            effect, // 响应式的核心
+            computed
+        } = VueReactivity
+        let obj = {
+            name: 'tkf',
+            age: 10,
+            address: 'xxx'
+        }
+
+        let state = reactive(obj)
+
+        let myAge = computed({// 多次使用同一个参数,只要没修改的时候,就computed就不会从新计算.
+            get(){
+                return state.age + 3
+            },
+            set(value){
+                console.log(value);
+            }
+        })
+        
+        // 响应式过程
+        effect(()=>{ 
+            console.log('我的年龄',myAge.value);
+            console.log('我的年龄',myAge.value);
+            console.log('我的年龄',myAge.value);
+        })
+
+        setTimeout(() => {
+            state.age = 20
+        }, 1000);
+
+
+        // 取值过程
+        /*         myAge.value
+                myAge.value
+                state.age =  9
+                myAge.value */
+    </script>
+</body>
+
+</html>

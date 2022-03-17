@@ -4,20 +4,18 @@ var VueReactivity = (function (exports) {
     const effectStack = []; // effect: 目的是保证effect可以存储正确的effect执行关系
     let activeEffect; // 当前激活的effect
     function cleanUpEffect(effect) {
-        console.log(effect);
         let { deps } = effect;
-        console.log(targetMap);
         for (let dep of deps) {
             dep.delete(effect); // 老师解释: 让属性对应的effect移除掉, 就不会触发这个effect从新执行了.
             // 我的想法: 就是把当前的deps里的每个set里,删除this(effect). 
             // 解释: 每个dep就是set
             // 后面再理解: deps就是属性对应的set,删除掉属性里的set,以后再次调用属性,就不会触发对应的effect执行(因为已经删除了)
         }
-        console.log(targetMap);
     }
     class ReactiveEffect {
-        constructor(fn) {
+        constructor(fn, schduler) {
             this.fn = fn;
+            this.schduler = schduler;
             this.active = true; // 功能: 记录当前effect是否激活可用,默认激活状态 写法: 在当前类上 this.active = true
             this.deps = []; // effect依赖那些属性
             this.run();
@@ -117,15 +115,9 @@ var VueReactivity = (function (exports) {
         if (!dep) {
             depsMap.set(key, (dep = new Set())); // {对象:{属性:set[]}}
         }
-        let shouldTrack = !dep.has(activeEffect);
-        if (shouldTrack) { // 没有当前actvieEffect,就添加上
-            dep.add(activeEffect);
-            activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有effect,等到用的时候就知道是哪个effect了
-        }
-        // console.log(activeEffect.deps);
+        trackEffects(dep);
     }
     function trigger(target, key) {
-        console.log(target, key, 122);
         let depsMap = targetMap.get(target);
         if (!depsMap)
             return; // 说明修改的属性根本没有依赖任何的effect
@@ -138,15 +130,32 @@ var VueReactivity = (function (exports) {
         for (let dep of deps) {
             effects.push(...dep); // 
         }
-        for (let effect of effects) { // 把每个effect取出
+        triggerEffects(effects);
+    }
+    function triggerEffects(dep) {
+        // 循环dep,让每个dep执行.
+        for (let effect of dep) { // 把每个effect取出
             if (effect !== activeEffect) { // 如果当前effect执行和要执行的effect是同一个,就不执行了,防止循环
+                if (effect.schduler) { // 如果有schduler,就走这个逻辑
+                    return effect.schduler();
+                }
                 effect.run(); // 执行effect,重新渲染数据
             }
+        }
+    }
+    function trackEffects(dep) {
+        let shouldTrack = !dep.has(activeEffect);
+        if (shouldTrack) { // 没有当前actvieEffect,就添加上
+            dep.add(activeEffect); //set.add方法
+            activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有effect,等到用的时候就知道是哪个effect了
         }
     }
 
     function isObject(obj) {
         return typeof obj === 'object' && !Array.isArray(obj);
+    }
+    function isFunction(val) {
+        return typeof val === 'function';
     }
 
     let mutableHandler = {
@@ -196,6 +205,59 @@ var VueReactivity = (function (exports) {
         return createReactiveObject(target);
     }
 
+    class ComputedRefImpl {
+        constructor(getter, setter) {
+            this.setter = setter;
+            this._dirty = true; // 默认是脏值
+            this.__v_isRef = true; // 表示是个ref对象,是ref就可以.value
+            this.effect = new ReactiveEffect(getter, () => {
+                // 稍后计算属性依赖的值,不要重新执行计算属性的effect,而是调用此函数.
+                if (!this._dirty) {
+                    this._dirty = true;
+                    triggerEffects(this.dep);
+                }
+            }); // 创造一个计算属性,就是创造一个effect. 函数就使用getter
+        }
+        get value() {
+            /*
+            computed的getter也要收集依赖
+                需要确认几个点
+                1. 是否在effect中取值
+            */
+            // 是否在effect中取值
+            if (isTracking()) {
+                debugger;
+                trackEffects(this.dep || (this.dep = new Set()));
+            }
+            // let d1  = Array.from(this.dep[0].deps)
+            // let d2 = d1;
+            // computed的脏值判断,没修改就复用原有值
+            if (this._dirty) {
+                this._value = this.effect.run(); // 就是effect的run方法,返回了这个值
+                this._dirty = false;
+            }
+            return this._value;
+        }
+        set value(newValue) {
+            this.setter(newValue); // 修改计算属性的置, 就出发自己的set方法
+        }
+    }
+    function computed(getterOrOptions) {
+        let onlyGetter = isFunction(getterOrOptions);
+        let getter;
+        let setter;
+        if (onlyGetter) { // 有可能只传入函数
+            getter = onlyGetter;
+            setter = () => { };
+        }
+        else { // 有可能传入一个对象,属性访问器的模式
+            getter = getterOrOptions.get;
+            setter = getterOrOptions.set;
+        }
+        return new ComputedRefImpl(getter, setter);
+    }
+
+    exports.computed = computed;
     exports.effect = effect;
     exports.reactive = reactive;
 

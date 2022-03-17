@@ -3,9 +3,7 @@ const effectStack = []; // effect: 目的是保证effect可以存储正确的eff
 let activeEffect; // 当前激活的effect
 
 function cleanUpEffect(effect){ // 总结: 就是把属性身上记载的effect删除,只是没去再从targetMap里寻找,而是在track记录的时候,存储在effect身上.这个时候取出来,把空间地址里的内容调用delete(set的方法),删除掉.就可以了.      所以不能把属性(name/age)身上的 deps = [],这样只是修改空间地址,而不是删除真正空间里的内容
-    console.log(effect);
     let {deps} = effect;
-    console.log(targetMap);
     for(let dep of deps){
 
         dep.delete(effect) // 老师解释: 让属性对应的effect移除掉, 就不会触发这个effect从新执行了.
@@ -13,14 +11,12 @@ function cleanUpEffect(effect){ // 总结: 就是把属性身上记载的effect�
         // 解释: 每个dep就是set
         // 后面再理解: deps就是属性对应的set,删除掉属性里的set,以后再次调用属性,就不会触发对应的effect执行(因为已经删除了)
     }
-    console.log(targetMap);
-
 }
 
 class ReactiveEffect { // 让effect记录他依赖了那些属性,同样也需要属性记录用了那些effect
     active = true // 功能: 记录当前effect是否激活可用,默认激活状态 写法: 在当前类上 this.active = true
     deps = [] // effect依赖那些属性
-    constructor(public fn) { // 写法: public fn => this.fn = fn
+    constructor(public fn,public schduler?) { // 写法: public fn => this.fn = fn
         this.run()
     }
     run() { // 调用run的时候,会让fn执行一次. effect依赖了很多属性,任何一个属性修改,都要触发页面更新
@@ -57,7 +53,7 @@ class ReactiveEffect { // 让effect记录他依赖了那些属性,同样也需�
             if (!effectStack.includes(this)) { // 屏蔽同一个effect的执行\
 
                 effectStack.push(activeEffect = this); // 初始化会调用run方法,this就是当前effect
-
+                
                 // 为了计算属性-添加的return
                 return this.fn();// 这个函数执行的时候,就会触发属性访问,然后就会连锁触发proxy.get方法. 这个时候get里就可以得到当前effect是谁(因为先做的effectStack.push操作).
             }
@@ -141,18 +137,12 @@ function track(target, key) {
         depsMap.set(key, (dep = new Set())) // {对象:{属性:set[]}}
     }
 
-    let shouldTrack = !dep.has(activeEffect)
-    if (shouldTrack) { // 没有当前actvieEffect,就添加上
-        dep.add(activeEffect)
-        activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有effect,等到用的时候就知道是哪个effect了
-    }
-    // console.log(activeEffect.deps);
+    trackEffects(dep)
 
 
 }
 
 function trigger(target,key){
-    console.log(target,key,122);
     let depsMap =  targetMap.get(target)
     if(!depsMap)return; // 说明修改的属性根本没有依赖任何的effect
 
@@ -165,16 +155,36 @@ function trigger(target,key){
     for(let dep of deps){
         effects.push(...dep) // 
     }
+    triggerEffects(effects)
 
-    for(let effect of effects){ // 把每个effect取出
+}
+
+function triggerEffects(dep){
+    // 循环dep,让每个dep执行.
+    for(let effect of dep){ // 把每个effect取出
         if(effect !== activeEffect){// 如果当前effect执行和要执行的effect是同一个,就不执行了,防止循环
+            if(effect.schduler){ // 如果有schduler,就走这个逻辑
+                return effect.schduler()
+            }
             effect.run() // 执行effect,重新渲染数据
         }
+    }
+}
+
+function trackEffects(dep){
+    let shouldTrack = !dep.has(activeEffect)
+    if (shouldTrack) { // 没有当前actvieEffect,就添加上
+        dep.add(activeEffect); //set.add方法
+        activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有effect,等到用的时候就知道是哪个effect了
     }
 }
 
 export {
     effect,
     track,
-    trigger
+    trigger,
+    ReactiveEffect,
+    isTracking,
+    trackEffects,
+    triggerEffects
 }

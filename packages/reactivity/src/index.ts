@@ -4,8 +4,6 @@ export {
 export { 
     reactive,
 } from './reactive'
-
-// export {
-//     reactive,
-//     effect
-// }
+export { 
+    computed,
+} from './computed'
