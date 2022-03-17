@@ -174,8 +174,9 @@ function triggerEffects(dep){
 function trackEffects(dep){
     let shouldTrack = !dep.has(activeEffect)
     if (shouldTrack) { // 没有当前actvieEffect,就添加上
-        dep.add(activeEffect); //set.add方法
-        activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有effect,等到用的时候就知道是哪个effect了
+        dep.add(activeEffect); //set.add方法 => 把属性记录在实例的dep里,也就是说本身属性依赖的effect用一个set存储
+        
+        activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有set[effect],等到用的时候就知道是哪个set[effect]了  --------最后执行的时候,还是拓展到一个数组里,循环执行.
     }
 }
 

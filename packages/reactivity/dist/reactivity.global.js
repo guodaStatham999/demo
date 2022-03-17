@@ -146,8 +146,8 @@ var VueReactivity = (function (exports) {
     function trackEffects(dep) {
         let shouldTrack = !dep.has(activeEffect);
         if (shouldTrack) { // 没有当前actvieEffect,就添加上
-            dep.add(activeEffect); //set.add方法
-            activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有effect,等到用的时候就知道是哪个effect了
+            dep.add(activeEffect); //set.add方法 => 把属性记录在实例的dep里,也就是说本身属性依赖的effect用一个set存储
+            activeEffect.deps.push(dep); // 当前effect记录了最里层set,set里装的是 [effect],不太明白这个地方??  ---再理解: 其实就是把当前的effect.deps里记录了属性记录的所有set[effect],等到用的时候就知道是哪个set[effect]了  --------最后执行的时候,还是拓展到一个数组里,循环执行.
         }
     }
 
@@ -158,6 +158,9 @@ var VueReactivity = (function (exports) {
         return typeof val === 'function';
     }
 
+    function toReactive(value) {
+        return isObject(value) ? reactive(value) : value;
+    }
     let mutableHandler = {
         get(target, key, receiver) {
             if (key === "__v_isReactive" /* IS_REACTIVE */) {
@@ -226,11 +229,14 @@ var VueReactivity = (function (exports) {
             */
             // 是否在effect中取值
             if (isTracking()) {
-                debugger;
                 trackEffects(this.dep || (this.dep = new Set()));
             }
-            // let d1  = Array.from(this.dep[0].deps)
-            // let d2 = d1;
+            /*        console.log(Array.from(this.dep) );
+                   let d1  = Array.from(this.dep);
+                   let d2 = Array.from(d1[0].deps[0]);
+                   console.log(d2);
+                   console.log(d1[0] ,'-------',d2[0]);
+                   console.log(d1[0] === d2[0]); */
             // computed的脏值判断,没修改就复用原有值
             if (this._dirty) {
                 this._value = this.effect.run(); // 就是effect的run方法,返回了这个值
@@ -257,9 +263,37 @@ var VueReactivity = (function (exports) {
         return new ComputedRefImpl(getter, setter);
     }
 
+    class RefImpl {
+        constructor(_rawValue) {
+            this._rawValue = _rawValue;
+            console.log(_rawValue);
+            this._value = toReactive(_rawValue); // 相当远_rawValue是传入的,如果是普通值两个值是相同的,如果是对象,原值和_value就是不同的
+        }
+        get value() {
+            if (isTracking()) {
+                trackEffects(this.dep || (this.dep = new Set()));
+            }
+            return this._value;
+        }
+        set value(newValue) {
+            if (this._rawValue !== newValue) {
+                this._rawValue = newValue;
+                this._value = toReactive(newValue);
+                triggerEffects(this.dep);
+            }
+        }
+    }
+    function createRef(value) {
+        return new RefImpl(value);
+    }
+    function ref(value) {
+        return createRef(value);
+    }
+
     exports.computed = computed;
     exports.effect = effect;
     exports.reactive = reactive;
+    exports.ref = ref;
 
     Object.defineProperty(exports, '__esModule', { value: true });
 

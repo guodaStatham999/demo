@@ -28,11 +28,14 @@ class ComputedRefImpl {
 
         // 是否在effect中取值
         if(isTracking()){
-            debugger
             trackEffects(this.dep || (this.dep = new Set()))
         }
-        // let d1  = Array.from(this.dep[0].deps)
-        // let d2 = d1;
+ /*        console.log(Array.from(this.dep) );
+        let d1  = Array.from(this.dep);
+        let d2 = Array.from(d1[0].deps[0]);
+        console.log(d2);
+        console.log(d1[0] ,'-------',d2[0]);
+        console.log(d1[0] === d2[0]); */
         
         // computed的脏值判断,没修改就复用原有值
         if (this._dirty) {

@@ -6,7 +6,9 @@ import { isObject } from "../../shared/src"
 const enum ReactiveFlags {
     IS_REACTIVE = '__v_isReactive'
 }
-
+function toReactive(value){
+    return isObject(value)? reactive(value): value
+}
 let mutableHandler = {
     get(target, key, receiver) { // 取值: 去哪个对象,取哪个值,代理对象本身receiver. receiver就是proxy本身,就是new Proxy返回的proxy
 
@@ -74,5 +76,6 @@ function reactive(target: object) {
 
 
 export {
-    reactive
+    reactive,
+    toReactive
 }
