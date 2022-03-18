@@ -1,7 +1,7 @@
 {
   "0 debug pnpm:scope": {
     "selected": 1,
-    "workspacePrefix": "C:\\Users\\wenge\\Desktop\\test\\vue3zf\\demo"
+    "workspacePrefix": "C:\\Users\\wenge\\Desktop\\test\\mySource\\vue3.2-mySource"
   },
   "1 error pnpm": {
     "errno": 1,
