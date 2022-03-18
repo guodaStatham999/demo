@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <!-- 自己写的 -->
+    <script src="../dist/runtim-dom/runtime-dom.global.js"></script>
+
+
+    <!-- vue3.2源码打包后的代码,github下载的 -->
+    <!-- <script src="./runtime-dom.global.js"></script> -->
+    <script>
+        let {
+            createApp,
+            h,
+            ref
+        } = VueRuntimeDOM
+
+        function useCount() {
+            let count = ref(0);
+            let add = () => {
+                count.value++
+            };
+            return {
+                count,
+                add
+            }
+        }
+        // 用法1 -- setup直接返回一个函数,就会替代render函数
+/*         let App = {
+            setup() {
+                let {count,add} =  useCount()
+
+                return () => {
+                    return h('div', {
+                        onClick: add
+                    }, 'hello vue3--' + count.value)
+                }
+            },
+        } */
+        // 用法2 -- setup返回一个对象,值可以在render的proxy里取到
+        let App = {
+            setup() {
+                let {count,add} =  useCount()
+
+                return {count,add}
+            },
+            render(proxy) { // 组件的渲染函数,默认渲染组件时会调用此函数,这是以前的写法. 目前也是兼容的
+                console.log(proxy);
+                return h('div', {
+                        onClick: proxy.add
+                    }, 'hello vue3--' + proxy.count)
+            },
+        }
+        let app = createApp(App)
+        app.mount('#app')
+        console.log(app);
+    </script>
+</body>
+
+</html>
