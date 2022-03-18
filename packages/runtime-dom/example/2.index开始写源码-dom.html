@@ -11,7 +11,7 @@
 <body>
     <div id="app"></div>
     <!-- 自己写的 -->
-    <script src="../dist/runtim-dom/runtime-dom.global.js"></script>
+    <script src="../dist/runtime-dom.global.js"></script>
 
 
     <!-- vue3.2源码打包后的代码,github下载的 -->
@@ -21,7 +21,7 @@
             createApp,
             h,
             ref
-        } = VueRuntimeDOM
+        } = VueRuntimeDOM;
 
         function useCount() {
             let count = ref(0);

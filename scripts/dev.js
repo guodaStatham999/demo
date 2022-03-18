@@ -5,7 +5,7 @@ console.log(execa,'execa');
 const args = minimist(process.argv.slice(2))
 
 // 获取执行命令时 打包的参数
-const target = args._.length ? args._[0] : 'runtim-dom'
+const target = args._.length ? args._[0] : 'runtime-dom'
 const formats = args.f || 'global'; // esm-bunlder global cjs
 const sourcemap = args.s || false
 
