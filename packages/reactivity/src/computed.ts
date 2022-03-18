@@ -17,6 +17,8 @@ class ComputedRefImpl {
             }
 
         })  // 创造一个计算属性,就是创造一个effect. 函数就使用getter
+        console.log(this);
+        
     }
 
     get value() { // 取值的时候,就会获取这个函数返回的值
