@@ -34,34 +34,42 @@
             }
         }
         // 用法1 -- setup直接返回一个函数,就会替代render函数
-/*         let App = {
-            setup() {
-                let {count,add} =  useCount()
+        /*         let App = {
+                    setup() {
+                        let {count,add} =  useCount()
 
-                return () => {
-                    return h('div', {
-                        onClick: add
-                    }, 'hello vue3--' + count.value)
-                }
-            },
-        } */
+                        return () => {
+                            return h('div', {
+                                onClick: add
+                            }, 'hello vue3--' + count.value)
+                        }
+                    },
+                } */
         // 用法2 -- setup返回一个对象,值可以在render的proxy里取到
         let App = {
+            props:['title'],
             setup() {
-                let {count,add} =  useCount()
+                let {
+                    count,
+                    add
+                } = useCount()
 
-                return {count,add}
+                return {
+                    count,
+                    add
+                }
             },
             render(proxy) { // 组件的渲染函数,默认渲染组件时会调用此函数,这是以前的写法. 目前也是兼容的
                 console.log(proxy);
                 return h('div', {
-                        onClick: proxy.add
-                    }, 'hello vue3--' + proxy.count)
+                    onClick: proxy.add,title:proxy.title
+                }, 'hello vue3--' + proxy.count + '---' + proxy.title)
             },
         }
-        let app = createApp(App)
+        let app = createApp(App, {
+            title: 'zf'
+        })
         app.mount('#app')
-        console.log(app);
     </script>
 </body>
 
