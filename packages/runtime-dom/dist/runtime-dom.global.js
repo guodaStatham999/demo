@@ -22,6 +22,7 @@ var VueRuntimeDOM = (function (exports) {
          不认识就是0            不知道的元素
           */
         let ShapeFlag = isObject(type) ? 6 /* COMPONENT */ : isString(type) ? 1 /* ELEMENT */ : 0;
+        console.log(ShapeFlag);
         // 虚拟节点
         let vnode = {
             __v_isVnode: true,
@@ -42,6 +43,7 @@ var VueRuntimeDOM = (function (exports) {
         console.log(vnode, 'vnode');
         return vnode;
     }
+
     function createAppApi(render) {
         return (rootComponent, rootProps) => {
             let app = {
@@ -342,6 +344,25 @@ var VueRuntimeDOM = (function (exports) {
         return createRef(value);
     }
 
+    function createComponentInstance(vnode) {
+        let type = vnode.type;
+        ({
+            vnode,
+            type,
+            subTree: null,
+            ctx: {},
+            props: {},
+            attrs: {},
+            slots: {},
+            setupState: {},
+            propsOptions: type.props,
+            proxy: null,
+            render: null,
+            emit: null,
+            exposed: {},
+            isMounted: false // 是否挂载完成
+        });
+    }
     // runtime-core不依赖平台代码,因为平台代码都是传入的(比如runtime-dom)
     function createRenderer(renderOptions) {
         /*
@@ -350,7 +371,31 @@ var VueRuntimeDOM = (function (exports) {
             有了要渲染的组件:     rootComponent
             有了组件的所有属性    rootProps
             有了最后的容器        container */
+        let mountComponent = (initialVnode, container) => {
+            console.log(initialVnode, container, '***');
+            // 挂载组件分3步骤
+            // 1. 我们呀偶给组件创造一个组件的实例
+            createComponentInstance(initialVnode);
+            // 2. 
+            // 3. 
+        };
+        let processComponent = (n1, n2, container) => {
+            if (n1 === null) {
+                // 组件的初始化,因为首个元素是空
+                mountComponent(n2, container);
+            }
+        };
+        let patch = (n1, n2, container) => {
+            if (n1 === n2)
+                return;
+            let { ShapeFlag } = n2;
+            if (ShapeFlag & 6 /* COMPONENT */) { // 组件需要处理
+                processComponent(n1, n2, container);
+            }
+        };
         let render = (vnode, container) => {
+            // 后续还有更新 patch方法 包含初次渲染 和更新
+            patch(null, vnode, container); // prevVnode(上次虚拟节点,没有就是初次渲染),node(本次渲染节点),container(容器)
         };
         return {
             createApp: createAppApi(render),
@@ -481,6 +526,7 @@ var VueRuntimeDOM = (function (exports) {
 
     exports.computed = computed;
     exports.createApp = createApp;
+    exports.createComponentInstance = createComponentInstance;
     exports.createRenderer = createRenderer;
     exports.effect = effect;
     exports.reactive = reactive;
