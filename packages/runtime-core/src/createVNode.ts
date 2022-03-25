@@ -14,7 +14,7 @@ export function createVNode(type, props, children = null) {
      不认识就是0            不知道的元素
       */
     let ShapeFlag = isObject(type) ? ShapeFlags.COMPONENT : isString(type) ? ShapeFlags.ELEMENT : 0
-    console.log(ShapeFlag);
+    console.log(props);
     
     // 虚拟节点
     let vnode = { // 跨平台,因为任何平台都可以从这个虚拟节点上取值
@@ -38,10 +38,5 @@ export function createVNode(type, props, children = null) {
         vnode.ShapeFlag = vnode.ShapeFlag | (isString(children) ? ShapeFlags.TEXT_CHILDREN : ShapeFlags.ARRAY_CHILDREN) // 这个意思就是两个属性叠加在一起了, 
 
     }
-    console.log(vnode,'vnode');
-    
-
-
     return vnode
-
 }

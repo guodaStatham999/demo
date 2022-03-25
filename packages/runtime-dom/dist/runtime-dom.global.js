@@ -1,66 +1,6 @@
 var VueRuntimeDOM = (function (exports) {
     'use strict';
 
-    function isObject(obj) {
-        return typeof obj === 'object' && !Array.isArray(obj);
-    }
-    function isFunction(val) {
-        return typeof val === 'function';
-    }
-    function isString(val) {
-        return typeof val === 'string';
-    }
-
-    function createVNode(type, props, children = null) {
-        // 创建虚拟节点3元素 
-        // 1. 创建的类型
-        // 2. 节点的属性
-        // 3. 孩子
-        /*
-         对象就是组件           {}
-         字符串就是元素.        'div'
-         不认识就是0            不知道的元素
-          */
-        let ShapeFlag = isObject(type) ? 6 /* COMPONENT */ : isString(type) ? 1 /* ELEMENT */ : 0;
-        console.log(ShapeFlag);
-        // 虚拟节点
-        let vnode = {
-            __v_isVnode: true,
-            type,
-            props,
-            ShapeFlag,
-            children,
-            key: props && props.key,
-            component: null,
-            el: null, // 虚拟节点对应的真实节点
-        };
-        if (children) { // 如果有儿子,有两种情况 ['hello','zf'] / 'div'
-            // 儿子分为几种类型, 如果是数组,类型就是数组儿子,如果是字符串,就是文本.
-            // vnode就可以描述出来: 当前节点是一个什么节点,并且儿子是个什么节点. 
-            // 稍后渲染虚拟节点的时候, 可以判断儿子是数组 就会循环渲染
-            vnode.ShapeFlag = vnode.ShapeFlag | (isString(children) ? 8 /* TEXT_CHILDREN */ : 16 /* ARRAY_CHILDREN */); // 这个意思就是两个属性叠加在一起了, 
-        }
-        console.log(vnode, 'vnode');
-        return vnode;
-    }
-
-    function createAppApi(render) {
-        return (rootComponent, rootProps) => {
-            let app = {
-                mount(container) {
-                    /* 挂载的核心:
-                        1. 就是根据组件传入的对象,创造一个组件的虚拟节点
-                        2. 在将这个虚拟节点渲染到容器中.
-                    */
-                    // 1. 创建组件的虚拟节点
-                    let vnode = createVNode(rootComponent, rootProps); // h函数很像,给一个内容,创建一个虚拟节点
-                    render(vnode, container);
-                },
-            };
-            return app;
-        };
-    }
-
     const effectStack = []; // effect: 目的是保证effect可以存储正确的effect执行关系
     let activeEffect; // 当前激活的effect
     function cleanUpEffect(effect) {
@@ -211,6 +151,16 @@ var VueRuntimeDOM = (function (exports) {
         }
     }
 
+    function isObject(obj) {
+        return typeof obj === 'object' && !Array.isArray(obj);
+    }
+    function isFunction(val) {
+        return typeof val === 'function';
+    }
+    function isString(val) {
+        return typeof val === 'string';
+    }
+
     function toReactive(value) {
         return isObject(value) ? reactive(value) : value;
     }
@@ -218,7 +168,6 @@ var VueRuntimeDOM = (function (exports) {
         get(target, key, receiver) {
             if (key === "__v_isReactive" /* IS_REACTIVE */) {
                 console.log(key);
-                debugger;
                 return true;
             }
             track(target, key);
@@ -344,9 +293,58 @@ var VueRuntimeDOM = (function (exports) {
         return createRef(value);
     }
 
+    function createVNode(type, props, children = null) {
+        // 创建虚拟节点3元素 
+        // 1. 创建的类型
+        // 2. 节点的属性
+        // 3. 孩子
+        /*
+         对象就是组件           {}
+         字符串就是元素.        'div'
+         不认识就是0            不知道的元素
+          */
+        let ShapeFlag = isObject(type) ? 6 /* COMPONENT */ : isString(type) ? 1 /* ELEMENT */ : 0;
+        console.log(props);
+        // 虚拟节点
+        let vnode = {
+            __v_isVnode: true,
+            type,
+            props,
+            ShapeFlag,
+            children,
+            key: props && props.key,
+            component: null,
+            el: null, // 虚拟节点对应的真实节点
+        };
+        if (children) { // 如果有儿子,有两种情况 ['hello','zf'] / 'div'
+            // 儿子分为几种类型, 如果是数组,类型就是数组儿子,如果是字符串,就是文本.
+            // vnode就可以描述出来: 当前节点是一个什么节点,并且儿子是个什么节点. 
+            // 稍后渲染虚拟节点的时候, 可以判断儿子是数组 就会循环渲染
+            vnode.ShapeFlag = vnode.ShapeFlag | (isString(children) ? 8 /* TEXT_CHILDREN */ : 16 /* ARRAY_CHILDREN */); // 这个意思就是两个属性叠加在一起了, 
+        }
+        return vnode;
+    }
+
+    function createAppApi(render) {
+        return (rootComponent, rootProps) => {
+            let app = {
+                mount(container) {
+                    /* 挂载的核心:
+                        1. 就是根据组件传入的对象,创造一个组件的虚拟节点
+                        2. 在将这个虚拟节点渲染到容器中.
+                    */
+                    // 1. 创建组件的虚拟节点
+                    let vnode = createVNode(rootComponent, rootProps); // h函数很像,给一个内容,创建一个虚拟节点
+                    render(vnode, container);
+                },
+            };
+            return app;
+        };
+    }
+
     function createComponentInstance(vnode) {
         let type = vnode.type;
-        ({
+        const instance = {
             vnode,
             type,
             subTree: null,
@@ -361,7 +359,35 @@ var VueRuntimeDOM = (function (exports) {
             emit: null,
             exposed: {},
             isMounted: false // 是否挂载完成
-        });
+        };
+        instance.ctx = { _: instance }; // 后续对他做一层代理
+        return instance;
+    }
+    function initProps(instance, rawProps) {
+        let props = {};
+        let attrs = {};
+        // 需要根据用户是否使用过这个属性,给他们命名.用过就是props,没用过就是attrs.
+        let options = Object.keys(instance.propsOptions); // 就是用户当前组件上使用的props里的内容. 如果没有就是$attrs的内容.  
+        if (rawProps) {
+            for (let key in rawProps) {
+                let value = rawProps[key];
+                if (options.includes(key)) {
+                    props[key] = value;
+                }
+                else {
+                    attrs[key] = value;
+                }
+            }
+        }
+        instance.props = reactive(props); // props是响应式
+        instance.attrs = (attrs); // attrs是非响应式的
+    }
+    function setupComponent(instance) {
+        let { attrs, props, children } = instance.vnode;
+        // 组件的props做初始化, attrs也要初始化
+        initProps(instance, props); // 将两个属性 props和attrs分别开来
+        console.log(instance, '000');
+        debugger;
     }
     // runtime-core不依赖平台代码,因为平台代码都是传入的(比如runtime-dom)
     function createRenderer(renderOptions) {
@@ -374,9 +400,10 @@ var VueRuntimeDOM = (function (exports) {
         let mountComponent = (initialVnode, container) => {
             console.log(initialVnode, container, '***');
             // 挂载组件分3步骤
-            // 1. 我们呀偶给组件创造一个组件的实例
-            createComponentInstance(initialVnode);
-            // 2. 
+            // 1. 我们给组件创造一个组件的实例(一个对象,有n多空属性)
+            let instance = initialVnode.component = createComponentInstance(initialVnode); // 创建的是实例,会给到虚拟节点的组件上,然后再给到当前这个变量instance
+            // 2. 需要给组件的实例做赋值操作
+            setupComponent(instance); // 给实例赋予属性
             // 3. 
         };
         let processComponent = (n1, n2, container) => {
@@ -529,8 +556,10 @@ var VueRuntimeDOM = (function (exports) {
     exports.createComponentInstance = createComponentInstance;
     exports.createRenderer = createRenderer;
     exports.effect = effect;
+    exports.initProps = initProps;
     exports.reactive = reactive;
     exports.ref = ref;
+    exports.setupComponent = setupComponent;
 
     Object.defineProperty(exports, '__esModule', { value: true });
 

@@ -33,21 +33,10 @@
                 add
             }
         }
-        // 用法1 -- setup直接返回一个函数,就会替代render函数
-        /*         let App = {
-                    setup() {
-                        let {count,add} =  useCount()
-
-                        return () => {
-                            return h('div', {
-                                onClick: add
-                            }, 'hello vue3--' + count.value)
-                        }
-                    },
-                } */
-        // 用法2 -- setup返回一个对象,值可以在render的proxy里取到
         let App = {
-            props:['title'],
+            props:{
+                title:{}
+            },
             setup() {
                 let {
                     count,
@@ -67,7 +56,8 @@
             },
         }
         let app = createApp(App, {
-            title: 'zf'
+            title: 'zf',
+            a:2
         })
         app.mount('#app')
     </script>

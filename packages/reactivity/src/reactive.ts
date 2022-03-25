@@ -14,7 +14,6 @@ let mutableHandler = {
 
         if (key === ReactiveFlags.IS_REACTIVE) {
             console.log(key);
-            debugger
             return true
         };
 
