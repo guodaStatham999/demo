@@ -13,7 +13,7 @@ function cleanUpEffect(effect){ // 总结: 就是把属性身上记载的effect�
     }
 }
 
-class ReactiveEffect { // 让effect记录他依赖了那些属性,同样也需要属性记录用了那些effect
+ class ReactiveEffect { // 让effect记录他依赖了那些属性,同样也需要属性记录用了那些effect
     active = true // 功能: 记录当前effect是否激活可用,默认激活状态 写法: 在当前类上 this.active = true
     deps = [] // effect依赖那些属性
     constructor(public fn,public schduler?) { // 写法: public fn => this.fn = fn

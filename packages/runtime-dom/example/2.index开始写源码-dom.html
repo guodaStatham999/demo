@@ -37,7 +37,7 @@
             props:{
                 title:{}
             },
-            setup() {
+            setup(props,ctx) {
                 let {
                     count,
                     add
@@ -49,10 +49,9 @@
                 }
             },
             render(proxy) { // 组件的渲染函数,默认渲染组件时会调用此函数,这是以前的写法. 目前也是兼容的
-                console.log(proxy);
                 return h('div', {
                     onClick: proxy.add,title:proxy.title
-                }, 'hello vue3--' + proxy.count + '---' + proxy.title)
+                }, 'hello vue3--' + proxy.count.value + '---' + proxy.title)
             },
         }
         let app = createApp(App, {

@@ -160,6 +160,61 @@ var VueRuntimeDOM = (function (exports) {
     function isString(val) {
         return typeof val === 'string';
     }
+    // 二进制是010101组成的,是每移动一位就成了另外一个样子  00001=> 就是00010
+    // | 的能力是: 100 | 10 只要是有1就是1  结果: 110
+    // & 的能力是: 100 & 10 必须是两个都是1 结果: 000 ,而用110 & 10 结果: 10 ,因为第二位的1是都有的,而100的1是只有一个.
+    let hasOwnProperty = Object.prototype.hasOwnProperty;
+    function hasOwn(value, key) {
+        return hasOwnProperty.call(value, key);
+    }
+
+    function createVNode$1(type, props, children = null) {
+        // 创建虚拟节点3元素 
+        // 1. 创建的类型
+        // 2. 节点的属性
+        // 3. 孩子
+        /*
+         对象就是组件           {}
+         字符串就是元素.        'div'
+         不认识就是0            不知道的元素
+          */
+        let ShapeFlag = isObject(type) ? 6 /* COMPONENT */ : isString(type) ? 1 /* ELEMENT */ : 0;
+        // 虚拟节点
+        let vnode = {
+            __v_isVnode: true,
+            type,
+            props,
+            ShapeFlag,
+            children,
+            key: props && props.key,
+            component: null,
+            el: null, // 虚拟节点对应的真实节点
+        };
+        if (children) { // 如果有儿子,有两种情况 ['hello','zf'] / 'div'
+            // 儿子分为几种类型, 如果是数组,类型就是数组儿子,如果是字符串,就是文本.
+            // vnode就可以描述出来: 当前节点是一个什么节点,并且儿子是个什么节点. 
+            // 稍后渲染虚拟节点的时候, 可以判断儿子是数组 就会循环渲染
+            vnode.ShapeFlag = vnode.ShapeFlag | (isString(children) ? 8 /* TEXT_CHILDREN */ : 16 /* ARRAY_CHILDREN */); // 这个意思就是两个属性叠加在一起了, 
+        }
+        return vnode;
+    }
+
+    function createAppApi(render) {
+        return (rootComponent, rootProps) => {
+            let app = {
+                mount(container) {
+                    /* 挂载的核心:
+                        1. 就是根据组件传入的对象,创造一个组件的虚拟节点
+                        2. 在将这个虚拟节点渲染到容器中.
+                    */
+                    // 1. 创建组件的虚拟节点
+                    let vnode = createVNode$1(rootComponent, rootProps); // h函数很像,给一个内容,创建一个虚拟节点
+                    render(vnode, container);
+                },
+            };
+            return app;
+        };
+    }
 
     function toReactive(value) {
         return isObject(value) ? reactive(value) : value;
@@ -167,7 +222,6 @@ var VueRuntimeDOM = (function (exports) {
     let mutableHandler = {
         get(target, key, receiver) {
             if (key === "__v_isReactive" /* IS_REACTIVE */) {
-                console.log(key);
                 return true;
             }
             track(target, key);
@@ -210,6 +264,118 @@ var VueRuntimeDOM = (function (exports) {
         return createReactiveObject(target);
     }
 
+    function createComponentInstance(vnode) {
+        let type = vnode.type;
+        const instance = {
+            vnode,
+            type,
+            subTree: null,
+            ctx: {},
+            props: {},
+            attrs: {},
+            slots: {},
+            setupState: {},
+            propsOptions: type.props,
+            proxy: null,
+            render: null,
+            emit: null,
+            exposed: {},
+            isMounted: false // 是否挂载完成
+        };
+        instance.ctx = { _: instance }; // 后续对他做一层代理
+        return instance;
+    }
+    function initProps(instance, rawProps) {
+        let props = {};
+        let attrs = {};
+        // 需要根据用户是否使用过这个属性,给他们命名.用过就是props,没用过就是attrs.
+        let options = Object.keys(instance.propsOptions); // 就是用户当前组件上使用的props里的内容. 如果没有就是$attrs的内容.  
+        if (rawProps) {
+            for (let key in rawProps) {
+                let value = rawProps[key];
+                if (options.includes(key)) {
+                    props[key] = value;
+                }
+                else {
+                    attrs[key] = value;
+                }
+            }
+        }
+        instance.props = reactive(props); // props是响应式
+        instance.attrs = (attrs); // attrs是非响应式的
+    }
+    function createSetupContext(instance) {
+        return {
+            attrs: instance.attrs,
+            slots: instance.slots,
+            emits: instance.emit,
+            expose: (exposed) => {
+                return instance.exposed = exposed || {};
+            }
+        };
+    }
+    let PbulicInstanceProxyHandlers = {
+        // 这个代理的意义: 通过proxy代理,可以在访问对象的时候,直接取值setupState(以前的data)和props. 且有先后顺序
+        get({ _: instance }, key) {
+            // get(target,key){ // 这是一开始写的,但是解构的话减少赋值操作
+            let { setupState, props } = instance;
+            if (hasOwn(setupState, key)) {
+                return setupState[key];
+            }
+            else if (hasOwn(props, key)) {
+                return props[key];
+            }
+            else ;
+        },
+        set({ _: instance }, key, value) {
+            let { setupState, props } = instance; // props不能修改
+            if (hasOwn(setupState, key)) {
+                setupState[key] = value;
+            }
+            else if (hasOwn(props, key)) {
+                console.warn('Props are readonly');
+                return false;
+            }
+            else ;
+            return true;
+        }
+    };
+    function setupStateFullComponent(instance) {
+        // setup函数在实例的type里render函数
+        let Component = instance.type;
+        let { setup } = Component;
+        // 这个proxy既能拿属性data,又能拿props,就类似vue2的this 
+        // instance.ctx是写法是: instance.ctx = { _ : 一个instance }
+        instance.proxy = new Proxy(instance.ctx, PbulicInstanceProxyHandlers); // 处理代理上下文的函数
+        // console.log(instance.proxy.a,'2222')
+        if (setup) {
+            /*
+            setup(第一个参数就是props,第二个参数就是attrs,emit,expose,slots集合) */
+            let setupContext = createSetupContext(instance);
+            let setupResult = setup(instance.props, setupContext);
+            if (isFunction(setupResult)) {
+                instance.render = setupResult; // 如果setup的是函数,他就是render函数
+            }
+            else if (isObject(setupResult)) {
+                instance.setupState = setupResult; // 如果setup返回的是一个对象,他就是作为属性存储.
+                // instance.render = 
+            }
+        }
+        // console.log(instance.proxy.count,'count')
+        if (!instance.render) {
+            // 下个阶段解决的问题:  如果没有render, 写的template 可能要做模板编译 下个阶段会实现如何将tempalte贬称render函数
+            instance.render = instance.type.render; // 如果没写setup的返回函数render,就采用组件本身的render.
+        }
+    }
+    function setupComponent(instance) {
+        let { attrs, props, children } = instance.vnode;
+        // 组件的props做初始化, attrs也要初始化
+        initProps(instance, props); // 将两个属性 props和attrs分别开来
+        // 插槽的初始化 ,2022年3月28日10:38:39,说 后面做
+        // initSlots(instance,children)....
+        setupStateFullComponent(instance); // 这个方法的目的就是调用setup函数,得到用户的返回值.扩充setup和render函数 启动带状态的组件
+    }
+
     class ComputedRefImpl {
         constructor(getter, setter) {
             this.setter = setter;
@@ -222,7 +388,7 @@ var VueRuntimeDOM = (function (exports) {
                     triggerEffects(this.dep);
                 }
             }); // 创造一个计算属性,就是创造一个effect. 函数就使用getter
-            console.log(this);
+            // console.log(this);
         }
         get value() {
             /*
@@ -269,7 +435,6 @@ var VueRuntimeDOM = (function (exports) {
     class RefImpl {
         constructor(_rawValue) {
             this._rawValue = _rawValue;
-            console.log(_rawValue);
             this._value = toReactive(_rawValue); // 相当远_rawValue是传入的,如果是普通值两个值是相同的,如果是对象,原值和_value就是不同的
         }
         get value() {
@@ -304,7 +469,6 @@ var VueRuntimeDOM = (function (exports) {
          不认识就是0            不知道的元素
           */
         let ShapeFlag = isObject(type) ? 6 /* COMPONENT */ : isString(type) ? 1 /* ELEMENT */ : 0;
-        console.log(props);
         // 虚拟节点
         let vnode = {
             __v_isVnode: true,
@@ -324,71 +488,57 @@ var VueRuntimeDOM = (function (exports) {
         }
         return vnode;
     }
-
-    function createAppApi(render) {
-        return (rootComponent, rootProps) => {
-            let app = {
-                mount(container) {
-                    /* 挂载的核心:
-                        1. 就是根据组件传入的对象,创造一个组件的虚拟节点
-                        2. 在将这个虚拟节点渲染到容器中.
-                    */
-                    // 1. 创建组件的虚拟节点
-                    let vnode = createVNode(rootComponent, rootProps); // h函数很像,给一个内容,创建一个虚拟节点
-                    render(vnode, container);
-                },
-            };
-            return app;
-        };
+    function isVNode(vnode) {
+        return !!vnode.__v_isVnode;
     }
 
-    function createComponentInstance(vnode) {
-        let type = vnode.type;
-        const instance = {
-            vnode,
-            type,
-            subTree: null,
-            ctx: {},
-            props: {},
-            attrs: {},
-            slots: {},
-            setupState: {},
-            propsOptions: type.props,
-            proxy: null,
-            render: null,
-            emit: null,
-            exposed: {},
-            isMounted: false // 是否挂载完成
-        };
-        instance.ctx = { _: instance }; // 后续对他做一层代理
-        return instance;
-    }
-    function initProps(instance, rawProps) {
-        let props = {};
-        let attrs = {};
-        // 需要根据用户是否使用过这个属性,给他们命名.用过就是props,没用过就是attrs.
-        let options = Object.keys(instance.propsOptions); // 就是用户当前组件上使用的props里的内容. 如果没有就是$attrs的内容.  
-        if (rawProps) {
-            for (let key in rawProps) {
-                let value = rawProps[key];
-                if (options.includes(key)) {
-                    props[key] = value;
+    function h(type, propsOrChildren, children) {
+        console.log(type, propsOrChildren, children);
+        /*
+            多种写法:
+            两个参数的
+                1. h('div',{color:red}) 种类 + 属性 没孩子
+                2. h('div',h('span'))   种类 + 孩子(h)   h方法返回对象
+                3. h('div','hello')     种类 + 孩子(字符串)
+                4. h('div',['hello','hello']) 种类 + 孩子(数组)
+                
+                除了第一种,好像其他的都会包裹成为第四种([孩子1,孩子2....])
+            三个参数/超过三个参数
+                1. h('div',{},'孩子')     种类 + 属性 + 孩子(字符串)
+                2. h('div',{},['孩子'])   种类 + 属性 + 孩子(数组-多个)
+                3. h('div',{},h('span'))  种类 + 属性 + 孩子(单个,h)
+             
+            最终只会留下两种类型
+                1. h('div',{},'孩子')
+                2. h('div',{},['孩子1','孩子2'])
+
+                h('div',{},h('span')) => 也会变成第二种类型(最终留下的第二种)
+            
+        */
+        let l = arguments.length;
+        if (l === 2) {
+            // 进入这里是2个参数;
+            if (isObject(propsOrChildren) && !Array.isArray(propsOrChildren)) { // 进入这里面是种类1 和种类2
+                if (isVNode(propsOrChildren.vnode)) { //  如果是虚拟节点,就要转成数组写法 
+                    return createVNode(type, null, children); // h('div',h('span')) 创造虚拟节点,没有属性,孩子是children
                 }
-                else {
-                    attrs[key] = value;
-                }
+                return createVNode(type, propsOrChildren, null); // h('div',{color:red}) 不是数组,所以孩子处传递null
+            }
+            else {
+                return createVNode(type, null, propsOrChildren); // 是类型3和类型4, 第三个参数传递propsOrChildren是因为第二个参数是孩子.而三个参数的时候就是第三个是孩子
             }
         }
-        instance.props = reactive(props); // props是响应式
-        instance.attrs = (attrs); // attrs是非响应式的
+        else { // 就是l >= 3的
+            if (l > 3) { // 除了2后面的都做成孩子
+                children = Array.prototype.slice.call(arguments, 2); // 从索引2开始,后面的都留存下来  (1,2,3,4,5,6,7) => [3,4,5,6,7]
+            }
+            else if (l === 3 && isVNode(children)) { // 如果孩子是一个虚拟节点,也用数组包裹,方便后面使用.
+                children = [children];
+            }
+            return createVNode(type, propsOrChildren, children); // 最终调用这个方法,第三个参数是孩子,和l ===2不同是因为那边的孩子第二个参数就是孩子,所以传递第二个.
+        }
     }
-    function setupComponent(instance) {
-        let { attrs, props, children } = instance.vnode;
-        // 组件的props做初始化, attrs也要初始化
-        initProps(instance, props); // 将两个属性 props和attrs分别开来
-        console.log(instance, '000');
-        debugger;
-    }
+
     // runtime-core不依赖平台代码,因为平台代码都是传入的(比如runtime-dom)
     function createRenderer(renderOptions) {
         /*
@@ -397,19 +547,40 @@ var VueRuntimeDOM = (function (exports) {
             有了要渲染的组件:     rootComponent
             有了组件的所有属性    rootProps
             有了最后的容器        container */
+        // 都是渲染逻辑的就会包裹在这个函数里,如果是其他逻辑的才会拆出去
+        let setupRenderEffect = (initialVnode, instance, container) => {
+            // 创建渲染effect
+            // 核心就是调用render,  是基于数据变化就调用render
+            let componentUpdateFn = () => {
+                let { proxy } = instance; // render中的那个参数
+                // 判断下是否挂载过 
+                if (!instance.isMounted) {
+                    // 组件初始化流程
+                    // 渲染的时候会调用h方法
+                    let subTree = instance.render.call(proxy, proxy); // 出发是effect触发,effect触发说明是初始化或者属性变化,这个时候就函数的render从新执行.
+                    instance.subTree = subTree; // render的执行结果就是subTree,放在实例上就可以.
+                    instance.isMounted = true; // 挂载完就修改属性
+                }
+            };
+            let effect = new ReactiveEffect(componentUpdateFn); //就是effect,会记录使用的属性. 属性变化就会让这个函数执行.
+            let update = effect.run.bind(effect); // 绑定this
+            update(); // 初始化就调用一遍更新,这个调用就是走的componentUpdateFn函数,因为给ReactiveEffect传入的函数是这个. 初始化run的时候是让this.fn(源码里)
+        };
         let mountComponent = (initialVnode, container) => {
-            console.log(initialVnode, container, '***');
             // 挂载组件分3步骤
             // 1. 我们给组件创造一个组件的实例(一个对象,有n多空属性)
             let instance = initialVnode.component = createComponentInstance(initialVnode); // 创建的是实例,会给到虚拟节点的组件上,然后再给到当前这个变量instance
             // 2. 需要给组件的实例做赋值操作
             setupComponent(instance); // 给实例赋予属性
-            // 3. 
+            // 3. 调用组件的render方法, 实现组件的渲染逻辑 
+            // 如果组件依赖的状态发生变化,组件要重新渲染(响应式)
+            // effect reactive => 数据变化,effect自动自行. 
+            setupRenderEffect(initialVnode, instance); // 渲染的effect
         };
         let processComponent = (n1, n2, container) => {
             if (n1 === null) {
                 // 组件的初始化,因为首个元素是空
-                mountComponent(n2, container);
+                mountComponent(n2);
             }
         };
         let patch = (n1, n2, container) => {
@@ -417,12 +588,12 @@ var VueRuntimeDOM = (function (exports) {
                 return;
             let { ShapeFlag } = n2;
             if (ShapeFlag & 6 /* COMPONENT */) { // 组件需要处理
-                processComponent(n1, n2, container);
+                processComponent(n1, n2);
             }
         };
         let render = (vnode, container) => {
             // 后续还有更新 patch方法 包含初次渲染 和更新
-            patch(null, vnode, container); // prevVnode(上次虚拟节点,没有就是初次渲染),node(本次渲染节点),container(容器)
+            patch(null, vnode); // prevVnode(上次虚拟节点,没有就是初次渲染),node(本次渲染节点),container(容器)
         };
         return {
             createApp: createAppApi(render),
@@ -553,13 +724,11 @@ var VueRuntimeDOM = (function (exports) {
 
     exports.computed = computed;
     exports.createApp = createApp;
-    exports.createComponentInstance = createComponentInstance;
     exports.createRenderer = createRenderer;
     exports.effect = effect;
-    exports.initProps = initProps;
+    exports.h = h;
     exports.reactive = reactive;
     exports.ref = ref;
-    exports.setupComponent = setupComponent;
 
     Object.defineProperty(exports, '__esModule', { value: true });
 

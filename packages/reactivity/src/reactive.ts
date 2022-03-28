@@ -13,7 +13,6 @@ let mutableHandler = {
     get(target, key, receiver) { // 取值: 去哪个对象,取哪个值,代理对象本身receiver. receiver就是proxy本身,就是new Proxy返回的proxy
 
         if (key === ReactiveFlags.IS_REACTIVE) {
-            console.log(key);
             return true
         };
 

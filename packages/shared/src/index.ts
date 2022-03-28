@@ -24,9 +24,15 @@ const enum ShapeFlags {
 // | 的能力是: 100 | 10 只要是有1就是1  结果: 110
 // & 的能力是: 100 & 10 必须是两个都是1 结果: 000 ,而用110 & 10 结果: 10 ,因为第二位的1是都有的,而100的1是只有一个.
 
+let hasOwnProperty = Object.prototype.hasOwnProperty;
+function hasOwn(value,key){
+    return hasOwnProperty.call(value,key)
+}
+
 export {
     isObject,
     isFunction,
     isString,
-    ShapeFlags
+    ShapeFlags,
+    hasOwn
 }

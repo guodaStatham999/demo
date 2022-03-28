@@ -8,7 +8,6 @@ class RefImpl {
     public __v_isRef
     public _value
     constructor(public _rawValue) { // 如果用户传入的是一个对象,需要转成响应式
-        console.log(_rawValue);
         this._value = toReactive(_rawValue); // 相当远_rawValue是传入的,如果是普通值两个值是相同的,如果是对象,原值和_value就是不同的
     }
     get value() {

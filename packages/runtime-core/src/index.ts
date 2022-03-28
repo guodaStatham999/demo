@@ -1,61 +1,13 @@
-import { reactive } from '@vue/reactivity';
 import { ShapeFlags } from '@vue/shared';
+import { ReactiveEffect } from 'packages/reactivity/src/effect';
 import { createAppApi } from './apiCreateApp'
+import { createComponentInstance, setupComponent } from './component';
 
 export * from '@vue/reactivity' // 导出这个模块中的所有代码
+export {h} from './h'
 
 
-export  function createComponentInstance (vnode){
-        let type = vnode.type;
-        const instance = {
-            vnode, // 实例对应的虚拟节点
-            type, // 组件对象,用户传入的.
-            subTree: null, // 组件渲染的内容   vue3中组件的vnode 就叫vnode  组件渲染的结果 subTree(render方法返回的虚拟节点)
-            ctx: {}, // 组件上下文
-            props: {}, // 组件属性
-            attrs: {}, // 除了props中的属性 
-            slots: {}, // 组件的插槽
-            setupState: {}, // setup返回的状态
-            propsOptions: type.props, // 属性选项
-            proxy: null, // 实例的代理对象
-            render:null, // 组件的渲染函数
-            emit: null, // 事件触发
-            exposed:{}, // 暴露的方法
-            isMounted: false // 是否挂载完成
-        }
 
-        instance.ctx = { _:instance }; // 后续对他做一层代理
-        
-        return instance;
-}
-
-export function initProps(instance,rawProps){
-    let props = {};
-    let attrs = {};
-    // 需要根据用户是否使用过这个属性,给他们命名.用过就是props,没用过就是attrs.
-    let options = Object.keys(instance.propsOptions); // 就是用户当前组件上使用的props里的内容. 如果没有就是$attrs的内容.  
-    if(rawProps){
-        for(let key in rawProps){
-           let value = rawProps[key];
-           if(options.includes(key)){
-               props[key] = value
-           }else{
-               attrs[key] = value
-           }
-        }
-    }
-    instance.props = reactive(props); // props是响应式
-    instance.attrs = (attrs); // attrs是非响应式的
-}
-
-export function setupComponent(instance){
-    let {attrs,props,children } = instance.vnode;
-    // 组件的props做初始化, attrs也要初始化
-    initProps(instance,props) // 将两个属性 props和attrs分别开来
-    console.log(instance,'000');
-    debugger
-    
-}
 
 // runtime-core不依赖平台代码,因为平台代码都是传入的(比如runtime-dom)
 export function createRenderer(renderOptions) {
@@ -65,45 +17,75 @@ export function createRenderer(renderOptions) {
         有了要渲染的组件:     rootComponent
         有了组件的所有属性    rootProps
         有了最后的容器        container */
+    // 都是渲染逻辑的就会包裹在这个函数里,如果是其他逻辑的才会拆出去
+
+    let setupRenderEffect = (initialVnode, instance, container) => {
+        // 创建渲染effect
+
+        // 核心就是调用render,  是基于数据变化就调用render
+        let componentUpdateFn = ()=>{
+            let {proxy} = instance; // render中的那个参数
+            // 判断下是否挂载过 
+            if(!instance.isMounted){
+                // 组件初始化流程
+
+                // 渲染的时候会调用h方法
+                let subTree =   instance.render.call(proxy,proxy); // 出发是effect触发,effect触发说明是初始化或者属性变化,这个时候就函数的render从新执行.
+
+                instance.subTree = subTree; // render的执行结果就是subTree,放在实例上就可以.
 
 
-    let mountComponent = (initialVnode,container)=>{
-        console.log(initialVnode,container,'***');
+                instance.isMounted=true; // 挂载完就修改属性
+            }else{
+                // 组件更新流程
+            }
+        }
+        let effect =   new ReactiveEffect(componentUpdateFn); //就是effect,会记录使用的属性. 属性变化就会让这个函数执行.
+
+        let update = effect.run.bind(effect); // 绑定this
+        update(); // 初始化就调用一遍更新,这个调用就是走的componentUpdateFn函数,因为给ReactiveEffect传入的函数是这个. 初始化run的时候是让this.fn(源码里)
+    }
+
+    let mountComponent = (initialVnode, container) => {
 
         // 挂载组件分3步骤
         // 1. 我们给组件创造一个组件的实例(一个对象,有n多空属性)
-        let instance =initialVnode.component =  createComponentInstance(initialVnode); // 创建的是实例,会给到虚拟节点的组件上,然后再给到当前这个变量instance
+        let instance = initialVnode.component = createComponentInstance(initialVnode); // 创建的是实例,会给到虚拟节点的组件上,然后再给到当前这个变量instance
         // 2. 需要给组件的实例做赋值操作
         setupComponent(instance); // 给实例赋予属性
-        // 3. 
+
+        // 3. 调用组件的render方法, 实现组件的渲染逻辑 
+        // 如果组件依赖的状态发生变化,组件要重新渲染(响应式)
+        // effect reactive => 数据变化,effect自动自行. 
+        setupRenderEffect(initialVnode, instance, container) // 渲染的effect
 
     }
 
-    let processComponent = (n1,n2,container)=>{
-        if(n1 === null){
+    let processComponent = (n1, n2, container) => {
+        if (n1 === null) {
             // 组件的初始化,因为首个元素是空
-            mountComponent(n2,container)
-        }else{
+            mountComponent(n2, container)
+        } else {
             // 组件的更新
         }
     }
 
-    let patch = (n1,n2,container)=>{
-        if(n1===n2)return;
-        let {ShapeFlag } = n2;
-        if(ShapeFlag & ShapeFlags.COMPONENT){ // 组件需要处理
-            processComponent(n1,n2,container)
+    let patch = (n1, n2, container) => {
+        if (n1 === n2) return;
+        let { ShapeFlag } = n2;
+        if (ShapeFlag & ShapeFlags.COMPONENT) { // 组件需要处理
+            processComponent(n1, n2, container)
         }
     }
 
-    let render = (vnode,container)=>{ // render就是给一个虚拟节点,渲染到哪里就可以了. 将虚拟节点转化为真实节点,渲染到容器中
-        
+    let render = (vnode, container) => { // render就是给一个虚拟节点,渲染到哪里就可以了. 将虚拟节点转化为真实节点,渲染到容器中
+
 
         // 后续还有更新 patch方法 包含初次渲染 和更新
-        patch(null,vnode,container) // prevVnode(上次虚拟节点,没有就是初次渲染),node(本次渲染节点),container(容器)
+        patch(null, vnode, container) // prevVnode(上次虚拟节点,没有就是初次渲染),node(本次渲染节点),container(容器)
     }
     return {
-        createApp:createAppApi(render), // 创建一个CreateApp方法
+        createApp: createAppApi(render), // 创建一个CreateApp方法
         render
     }
 }

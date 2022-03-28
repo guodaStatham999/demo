@@ -1,4 +1,5 @@
 import { isObject, ShapeFlags, isString } from "@vue/shared";
+import exp from "constants";
 
 
 
@@ -14,7 +15,6 @@ export function createVNode(type, props, children = null) {
      不认识就是0            不知道的元素
       */
     let ShapeFlag = isObject(type) ? ShapeFlags.COMPONENT : isString(type) ? ShapeFlags.ELEMENT : 0
-    console.log(props);
     
     // 虚拟节点
     let vnode = { // 跨平台,因为任何平台都可以从这个虚拟节点上取值
@@ -39,4 +39,8 @@ export function createVNode(type, props, children = null) {
 
     }
     return vnode
+}
+
+export function isVNode(vnode){
+    return !!vnode.__v_isVnode
 }
