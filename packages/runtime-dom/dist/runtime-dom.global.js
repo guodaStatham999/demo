@@ -198,6 +198,16 @@ var VueRuntimeDOM = (function (exports) {
         }
         return vnode;
     }
+    let Text = Symbol();
+    function normalizeVNode(vnode) {
+        // 规范化Vnode节点,就是把字符串/数字变成一个对象(虚拟节点对象)
+        if (isObject(vnode)) {
+            return vnode;
+        }
+        else {
+            return createVNode$1(Text, null, String(vnode));
+        }
+    }
 
     function createAppApi(render) {
         return (rootComponent, rootProps) => {
@@ -541,6 +551,7 @@ var VueRuntimeDOM = (function (exports) {
 
     // runtime-core不依赖平台代码,因为平台代码都是传入的(比如runtime-dom)
     function createRenderer(renderOptions) {
+        const { insert: hostInsert, remove: hostRemove, patchProp: hostPatchProp, createElement: hostCreateElement, createText: hostCreateText, createComment: hostCreateComment, setText: hostSetText, setElementText: hostSetElementText, parentNode: hostParentNode, nextSibling: hostNextSibling, } = renderOptions;
         /*
         拆包的逻辑 -> 有了这几个属性:
             runtimeDom的所有APi: renderOptions
@@ -558,7 +569,12 @@ var VueRuntimeDOM = (function (exports) {
                     // 组件初始化流程
                     // 渲染的时候会调用h方法
                     let subTree = instance.render.call(proxy, proxy); // 出发是effect触发,effect触发说明是初始化或者属性变化,这个时候就函数的render从新执行.
+                    // subTree还是一个虚拟节点,因为如果是h渲染的 返回值就是虚拟节点.
                     instance.subTree = subTree; // render的执行结果就是subTree,放在实例上就可以.
+                    debugger;
+                    // 真正渲染组件,是渲染subTree(就是一个虚拟节点). patch就是渲染虚拟节点用的
+                    patch(null, subTree, container); // 稍后渲染完subTree会生成真实节点,之后需要挂载到subTree上.------这个可能在patch里操作了?
+                    initialVnode.el = subTree.el; // 把真实节点放到实例上存储.
                     instance.isMounted = true; // 挂载完就修改属性
                 }
             };
@@ -575,25 +591,78 @@ var VueRuntimeDOM = (function (exports) {
             // 3. 调用组件的render方法, 实现组件的渲染逻辑 
             // 如果组件依赖的状态发生变化,组件要重新渲染(响应式)
             // effect reactive => 数据变化,effect自动自行. 
-            setupRenderEffect(initialVnode, instance); // 渲染的effect
+            setupRenderEffect(initialVnode, instance, container); // 渲染的effect
+        };
+        let mountElement = (vnode, container) => {
+            // vnode可能是字符串,可以可能是对象数组/字符串数组,因为在h方法的时候区分了
+            let { type, props, children, ShapeFlag } = vnode; // 获取节点的类型 属性 儿子的形状= 文本,数组
+            let el = vnode.el = hostCreateElement(type);
+            hostInsert(el, container);
+            if (ShapeFlag & 8 /* TEXT_CHILDREN */) {
+                hostSetElementText(el, children); // 因为类型是文本,所以孩子是字符串
+            }
+            else if (ShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                mountChildren(children, el); // 儿子不能循环挂载
+            }
+            // 处理属性
+            if (props) {
+                for (let key in props) {
+                    hostPatchProp(el, key, null, props[key]); // 给元素添加属性
+                }
+            }
+            hostInsert(el, container);
+        };
+        let mountChildren = (children, container) => {
+            // 儿子不能循环挂载,
+            // 1. 因为可能多个文本,需要先创建为虚拟节点.
+            // 2. 为了节省性能不能多次传入,而是使用 fragment存储 一次性传入 可以节省性能
+            for (let i = 0; i < children.length; i++) {
+                let child = (children[i] = normalizeVNode(children[i])); // 如果是字符串,变成对象
+                // 这个地方是会递归patch,每个孩子都会处理. 深度优先
+                // 都成为了虚拟节点后,使用patch创建元素
+                patch(null, child, container); // 如果是文本节点,在patch里有switch区分,然后做特殊处理(只是把字符串做成了文本)
+            }
+            console.log(children);
         };
         let processComponent = (n1, n2, container) => {
             if (n1 === null) {
                 // 组件的初始化,因为首个元素是空
-                mountComponent(n2);
+                mountComponent(n2, container);
+            }
+        };
+        let processElement = (n1, n2, container) => {
+            if (n1 === null) {
+                // 元素的初始化,因为首个元素是空
+                mountElement(n2, container);
+            }
+        };
+        let processText = (n1, n2, container) => {
+            if (n1 === null) {
+                // 文本的初始化
+                let textNode = hostCreateText(n2.children);
+                hostInsert(textNode, container);
             }
         };
         let patch = (n1, n2, container) => {
             if (n1 === n2)
                 return;
-            let { ShapeFlag } = n2;
-            if (ShapeFlag & 6 /* COMPONENT */) { // 组件需要处理
-                processComponent(n1, n2);
+            let { ShapeFlag, type } = n2;
+            switch (type) {
+                case Text:
+                    processText(n1, n2, container);
+                    break;
+                default:
+                    if (ShapeFlag & 6 /* COMPONENT */) { // 组件需要处理
+                        processComponent(n1, n2, container);
+                    }
+                    else if (ShapeFlag & 1 /* ELEMENT */) { // 如果当前类型是元素的话
+                        processElement(n1, n2, container);
+                    }
             }
         };
         let render = (vnode, container) => {
             // 后续还有更新 patch方法 包含初次渲染 和更新
-            patch(null, vnode); // prevVnode(上次虚拟节点,没有就是初次渲染),node(本次渲染节点),container(容器)
+            patch(null, vnode, container); // prevVnode(上次虚拟节点,没有就是初次渲染),node(本次渲染节点),container(容器)
         };
         return {
             createApp: createAppApi(render),
@@ -664,7 +733,7 @@ var VueRuntimeDOM = (function (exports) {
         else {
             const name = key.slice(2).toLowerCase(); // eventName
             if (nextValue) {
-                debugger; // ****看invokers和key都是什么****
+                // debugger // ****看invokers和key都是什么****
                 const invoker = invokers[key] = createInvoker(nextValue); // 返回一个引用
                 el.addEventListener(name, invoker); // 正规的时间 onClick =(e)=>{}
             }
@@ -705,13 +774,13 @@ var VueRuntimeDOM = (function (exports) {
     };
 
     // 需要函数我们的 dom 操作的api和属性操作的api,将这些api传入到我们的runtime-core中
-    Object.assign(nodeOps, {
+    let renderOptions = Object.assign(nodeOps, {
         patchProp
     });
     // runtime-dom 在这层对浏览器的操作做了一些(就相当于dom是操作浏览器,而core里不用关心是小程序还是dom的操作了)
     const createApp = (component, rootProps = null) => {
         // 需要创建一个渲染器 
-        let { createApp } = createRenderer();
+        let { createApp } = createRenderer(renderOptions);
         let app = createApp(component, rootProps);
         let { mount } = app;
         app.mount = function (container) {

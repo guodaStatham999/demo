@@ -26,6 +26,7 @@
         function useCount() {
             let count = ref(0);
             let add = () => {
+                console.log('可以点击,使用patchProps增加成功');
                 count.value++
             };
             return {
@@ -49,9 +50,21 @@
                 }
             },
             render(proxy) { // 组件的渲染函数,默认渲染组件时会调用此函数,这是以前的写法. 目前也是兼容的
+                // return h('div', {
+                //     onClick: proxy.add,title:proxy.title
+                // }, 'hello vue3--' + proxy.count.value + '---' + proxy.title)
+                // return h('div', {
+                //     onClick: proxy.add,title:proxy.title
+                // }, 'hello vue3--');
+                // return h('div', {
+                //     onClick: proxy.add,title:proxy.title
+                // }, ['hello vue3--','333']);
                 return h('div', {
-                    onClick: proxy.add,title:proxy.title
-                }, 'hello vue3--' + proxy.count.value + '---' + proxy.title)
+                    onClick: proxy.add,title:proxy.title,style:{color:'red'}
+                }, h('span',['world',h('a','xxx')]),this.count.value); // 此处是递归创建,所以可以嵌套创建
+                // return h('div', {
+                //     onClick: proxy.add,title:proxy.title
+                // }, h('span')) // 这种最后是成为 [{孩子}]
             },
         }
         let app = createApp(App, {

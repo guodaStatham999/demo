@@ -1,4 +1,5 @@
 import { isObject, ShapeFlags, isString } from "@vue/shared";
+import { debug } from "console";
 import exp from "constants";
 
 
@@ -32,7 +33,6 @@ export function createVNode(type, props, children = null) {
     if (children) { // 如果有儿子,有两种情况 ['hello','zf'] / 'div'
         // 儿子分为几种类型, 如果是数组,类型就是数组儿子,如果是字符串,就是文本.
 
-
         // vnode就可以描述出来: 当前节点是一个什么节点,并且儿子是个什么节点. 
         // 稍后渲染虚拟节点的时候, 可以判断儿子是数组 就会循环渲染
         vnode.ShapeFlag = vnode.ShapeFlag | (isString(children) ? ShapeFlags.TEXT_CHILDREN : ShapeFlags.ARRAY_CHILDREN) // 这个意思就是两个属性叠加在一起了, 
@@ -43,4 +43,15 @@ export function createVNode(type, props, children = null) {
 
 export function isVNode(vnode){
     return !!vnode.__v_isVnode
+}
+
+export let Text = Symbol()
+
+export function normalizeVNode(vnode){ 
+    // 规范化Vnode节点,就是把字符串/数字变成一个对象(虚拟节点对象)
+    if(isObject(vnode)){
+        return vnode
+    }else{
+      return  createVNode(Text,null,String(vnode))
+    }
 }
