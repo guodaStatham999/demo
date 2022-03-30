@@ -2,7 +2,6 @@ import { isObject } from "@vue/shared";
 import { isVNode,createVNode } from './createVNode'
 
 export function h(type, propsOrChildren, children) { // 第一个参数是标签名 第二个是属性或者孩子,因为有可能不传属性 第三个是孩子(也有可能不唯一是个数组)
-    console.log(type, propsOrChildren, children);
 
     /* 
         多种写法:

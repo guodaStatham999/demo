@@ -39,7 +39,7 @@ function patchEvent(el, key, nextValue) {
     } else {
         const name = key.slice(2).toLowerCase(); // eventName
         if (nextValue) {
-            // debugger // ****看invokers和key都是什么****
+             // ****看invokers和key都是什么****
             const invoker = invokers[key] = createInvoker(nextValue); // 返回一个引用
             el.addEventListener(name, invoker);  // 正规的时间 onClick =(e)=>{}
         } else if (exisitingInvoker) {

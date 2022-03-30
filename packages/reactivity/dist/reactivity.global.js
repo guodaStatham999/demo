@@ -164,8 +164,6 @@ var VueReactivity = (function (exports) {
     let mutableHandler = {
         get(target, key, receiver) {
             if (key === "__v_isReactive" /* IS_REACTIVE */) {
-                console.log(key);
-                debugger;
                 return true;
             }
             track(target, key);
@@ -220,7 +218,7 @@ var VueReactivity = (function (exports) {
                     triggerEffects(this.dep);
                 }
             }); // 创造一个计算属性,就是创造一个effect. 函数就使用getter
-            console.log(this);
+            // console.log(this);
         }
         get value() {
             /*
@@ -267,8 +265,7 @@ var VueReactivity = (function (exports) {
     class RefImpl {
         constructor(_rawValue) {
             this._rawValue = _rawValue;
-            console.log(_rawValue);
-            this._value = toReactive(_rawValue); // 相当远_rawValue是传入的,如果是普通值两个值是相同的,如果是对象,原值和_value就是不同的
+            this._value = toReactive(_rawValue); // 相当于 _rawValue是传入的,如果是普通值两个值是相同的,如果是对象,原值和_value就是不同的
         }
         get value() {
             if (isTracking()) {

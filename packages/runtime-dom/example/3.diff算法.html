@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <!-- 自己写的 -->
+    <script src="../dist/runtime-dom.global.js"></script>
+
+
+    <!-- vue3.2源码打包后的代码,github下载的 -->
+    <!-- <script src="./runtime-dom.global.js"></script> -->
+    <script>
+        let {
+            createApp,
+            h,
+            ref
+        } = VueRuntimeDOM;
+
+        let App = {
+            props: {
+                title: {}
+            },
+            setup(props, ctx) {
+                let flag = ref(true);
+                setTimeout(() => {
+                    flag.value = !flag.value
+                }, 2000)
+                return {
+                    flag
+                }
+            },
+            render(proxy) { // 组件的渲染函数,默认渲染组件时会调用此函数,这是以前的写法. 目前也是兼容的
+                return proxy.flag.value ? h('div', {
+                    style: {
+                        color: 'red'
+                    }
+                }, 'hello1') : h('span', {
+                    style: {
+                        color: "green"
+                    }
+                }, 'world2')
+                // return h('div', {
+                //     onClick: proxy.add,title:proxy.title
+                // }, h('span')) // 这种最后是成为 [{孩子}]
+            },
+        }
+        let app = createApp(App, {
+            title: 'zf',
+            a: 2
+        })
+        app.mount('#app')
+    </script>
+</body>
+
+</html>

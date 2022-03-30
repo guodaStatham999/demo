@@ -1,8 +1,9 @@
 import { ShapeFlags } from '@vue/shared';
+import { debug } from 'console';
 import { ReactiveEffect } from 'packages/reactivity/src/effect';
 import { createAppApi } from './apiCreateApp'
 import { createComponentInstance, setupComponent } from './component';
-import { normalizeVNode, Text } from './createVnode';
+import { isSameVNodeType, normalizeVNode, Text } from './createVnode';
 
 export * from '@vue/reactivity' // 导出这个模块中的所有代码
 export { h } from './h'
@@ -48,7 +49,6 @@ export function createRenderer(renderOptions) {
                 // subTree还是一个虚拟节点,因为如果是h渲染的 返回值就是虚拟节点.
 
                 instance.subTree = subTree; // render的执行结果就是subTree,放在实例上就可以.
-                debugger
                 // 真正渲染组件,是渲染subTree(就是一个虚拟节点). patch就是渲染虚拟节点用的
                 patch(null, subTree, container); // 稍后渲染完subTree会生成真实节点,之后需要挂载到subTree上.------这个可能在patch里操作了?
                 initialVnode.el = subTree.el; // 把真实节点放到实例上存储.
@@ -56,6 +56,12 @@ export function createRenderer(renderOptions) {
                 instance.isMounted = true; // 挂载完就修改属性
             } else {
                 // 组件更新流程
+                // 可以做更新的时候,做diff算法
+                let prevTree = instance.subTree; // 上次的树
+                let nextTree = instance.render.call(proxy,proxy);
+                console.log(333);
+                
+                patch(prevTree,nextTree,container)
             }
         }
         let effect = new ReactiveEffect(componentUpdateFn); //就是effect,会记录使用的属性. 属性变化就会让这个函数执行.
@@ -82,7 +88,7 @@ export function createRenderer(renderOptions) {
         // vnode可能是字符串,可以可能是对象数组/字符串数组,因为在h方法的时候区分了
         let { type, props, children, ShapeFlag } = vnode; // 获取节点的类型 属性 儿子的形状= 文本,数组
         let el = vnode.el = hostCreateElement(type);
-        hostInsert(el, container);
+        // hostInsert(el, container);
 
         if (ShapeFlag & ShapeFlags.TEXT_CHILDREN) {
             hostSetElementText(el, children); // 因为类型是文本,所以孩子是字符串
@@ -129,12 +135,19 @@ export function createRenderer(renderOptions) {
         }
     }
 
+
+    let patchElement = (n1,n2)=>{
+        n2.el = n1.el; 
+        
+    }
     let processElement = (n1, n2, container) => {
         if (n1 === null) {
             // 元素的初始化,因为首个元素是空
             mountElement(n2, container)
         } else {
+            debugger
             // 元素的diff算法 
+            patchElement(n1,n2); // 更新两个元素之间的差异
         }
     }
 
@@ -148,7 +161,20 @@ export function createRenderer(renderOptions) {
         }
     }
 
+    let unmout = (vnode)=>{ // 直接删除掉真实节点
+        hostRemove(vnode.el)
+    }
+
     let patch = (n1, n2, container) => {
+
+        // 第一种: 两个元素完全没有关系
+        if(n1 && !isSameVNodeType(n1,n2)){ // 是否相同节点,如果是相同节点走diff. 不是相同节点直接替换
+            unmout(n1);
+            n1 = null; // 只要是null,就会走初始化流程
+        } else{
+            
+        }
+        
         if (n1 === n2) return;
         let { ShapeFlag, type } = n2;
         switch (type) {
@@ -162,6 +188,14 @@ export function createRenderer(renderOptions) {
                     processElement(n1, n2, container)
                 }
         }
+        // switch (type) {
+        //     case value:
+                
+        //         break;
+        
+        //     default:
+        //         break;
+        // }
 
     }
 

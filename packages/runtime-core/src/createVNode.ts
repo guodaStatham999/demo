@@ -1,6 +1,4 @@
 import { isObject, ShapeFlags, isString } from "@vue/shared";
-import { debug } from "console";
-import exp from "constants";
 
 
 
@@ -54,4 +52,8 @@ export function normalizeVNode(vnode){
     }else{
       return  createVNode(Text,null,String(vnode))
     }
+}
+export function isSameVNodeType(n1,n2){
+    // 元素 div / span就是类型不一致  key目前是undefined所以不用使用
+    return n1.type === n2.type && (n1.key === n2.key)
 }
