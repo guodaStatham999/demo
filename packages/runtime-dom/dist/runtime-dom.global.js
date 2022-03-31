@@ -502,13 +502,65 @@ var VueRuntimeDOM = (function (exports) {
                 }
             }
         };
+        let unmoutChildren = (children) => {
+            for (let i = 0; i < children.length; i++) {
+                unmout(children[i]); // 每个都卸载掉 dom
+            }
+        };
+        let patchChildren = (n1, n2, el) => {
+            let c1 = n1 && n1.children; // 老儿子
+            let c2 = n2 && n2.children; // 新儿子
+            // 主要依靠两个类型来判断
+            let prevShapeFlag = n1.ShapeFlag;
+            let currentShapeFlag = n2.ShapeFlag;
+            // c1 和c2 儿子有哪些类型(使用shapeFlag)
+            // 1. 之前的孩子是数组,现在是文本 => 把之前的数组都删除,添加文本
+            // 2. 之前的孩子是数组,现在是数组 => 比较两个儿子列表的差异
+            // 3. 之前的孩子是文本,现在是空的 => 删除老的即可
+            // 4. 之前的孩子是文本,现在是文本 => 直接更新文本即可
+            // 5. 之前的孩子是文本,现在是数组 => 删除文本,新增儿子
+            // 6. 之前的孩子是空的,现在是文本 => 
+            // 1. 现在是文本的情况 1 4解决
+            if (currentShapeFlag & 8 /* TEXT_CHILDREN */) {
+                // 1. 之前是数组
+                if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                    unmoutChildren(c1);
+                }
+                // 4. 之前是文本,之后也是文本 => 走到这的原因是: 外层限定现在是文本,如果是数组也卸载掉了,所以这里肯定是之前和现在都是文本, 那么就替换文本内容.
+                if (c1 !== c2) {
+                    hostSetElementText(el, c2);
+                }
+            }
+            else {
+                // 现在这里面就都是数组了
+                if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                    // 2.说明之前是数组,现在也是数组 ******
+                    if (currentShapeFlag & 16 /* ARRAY_CHILDREN */) ;
+                    else {
+                        // 之前是数组, 现在不是数组-就是空文本 => 需要把之前的都干掉
+                        unmoutChildren(c1);
+                    }
+                }
+                else {
+                    // 之前是文本,清空所有孩子
+                    if (prevShapeFlag & 8 /* TEXT_CHILDREN */) {
+                        hostSetElementText(el, '');
+                    }
+                    // 之前是文本,现在是数组,挂载所有孩子
+                    if (currentShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                        mountChildren(c2, el);
+                    }
+                }
+            }
+        };
         let patchElement = (n1, n2) => {
             // 1. 复用元素 2. 比较属性 3. 比较孩子
             let el = n2.el = n1.el; // diff算法,
             let oldProps = n1.props || {};
             let newProps = n2.props || {};
             patchProps(oldProps, newProps, el);
-            // 比较孩子 => diff孩子 => 有很多情况
+            // 比较孩子 => diff孩子 => 有很多情况 ,我们的diff算法是同级别比较. 就是一个树形结构. 就是A根下面有b和c   A1根下有b1和c1 A和A1比较,b,c和b1,c1比较
+            patchChildren(n1, n2, el); // 用新得儿子n2和老的儿子n1 进行比对
         };
         let processElement = (n1, n2, container) => {
             if (n1 === null) {
@@ -524,6 +576,7 @@ var VueRuntimeDOM = (function (exports) {
             if (n1 === null) {
                 // 文本的初始化
                 let textNode = hostCreateText(n2.children);
+                n2.el = textNode;
                 hostInsert(textNode, container);
             }
         };
@@ -532,7 +585,7 @@ var VueRuntimeDOM = (function (exports) {
         };
         let patch = (n1, n2, container) => {
             // 第一种: 两个元素完全没有关系
-            if (n1 && !isSameVNodeType(n1, n2)) { // 是否相同节点,如果是相同节点走diff. 不是相同节点直接替换
+            if (n1 && !isSameVNodeType(n1, n2)) { // 是否相同节点,如果是相同节点走diff. 不是相同节点删除原来dom节点,并且把n1参数清空为null,
                 unmout(n1);
                 n1 = null; // 只要是null,就会走初始化流程
             }
@@ -681,7 +734,7 @@ var VueRuntimeDOM = (function (exports) {
         return vnode;
     }
     function isVNode(vnode) {
-        return !!vnode.__v_isVnode;
+        return vnode && !!vnode.__v_isVnode;
     }
 
     function h(type, propsOrChildren, children) {

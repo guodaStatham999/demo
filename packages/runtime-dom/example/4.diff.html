@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <!-- 自己写的 -->
+    <script src="../dist/runtime-dom.global.js"></script>
+
+
+    <!-- vue3.2源码打包后的代码,github下载的 -->
+    <!-- <script src="./runtime-dom.global.js"></script> -->
+    <script>
+        let {
+            createApp,
+            h,
+            ref
+        } = VueRuntimeDOM;
+
+        let App = {
+            props: {
+                title: {}
+            },
+            setup(props, ctx) {
+                let flag = ref(true);
+                setTimeout(() => {
+                    flag.value = !flag.value
+                }, 2000)
+                return {
+                    flag
+                }
+            },
+            /* 
+                c1 和c2 儿子有哪些类型(使用shapeFlag)
+                    1. 之前的孩子是数组,现在是文本 => 把之前的数组都删除,添加文本
+                    2. 之前的孩子是数组,现在是数组 => 比较两个儿子列表的差异
+                    3. 之前的孩子是文本,现在是空的 => 删除老的即可
+                    4. 之前的孩子是文本,现在是文本 => 直接更新文本即可
+
+                    5. 之前的孩子是文本,现在是数组 => 删除文本,新增儿子
+                    6. 之前的孩子是空的,现在是文本 => 
+            */
+            render(proxy) { // 之前是没有,第二次渲染 文本
+                return proxy.flag.value ?
+                    h('div', { 
+                        style: {
+                            color: 'red'
+                        }
+                    }) :
+                    h('div', {
+                        style: {
+                            color: "green"
+                        }
+                    },'223')
+            },
+  /*           render(proxy) { // 之前是没有,第二次渲染 数组
+                return proxy.flag.value ?
+                    h('div', { 
+                        style: {
+                            color: 'red'
+                        }
+                    }) :
+                    h('div', {
+                        style: {
+                            color: "green"
+                        }
+                    },['hello','world'])
+            }, */
+/*             render(proxy) { // 之前是文本,第二次渲染 数组
+                return proxy.flag.value ?
+                    h('div', { 
+                        style: {
+                            color: 'red'
+                        }
+                    },'hello') :
+                    h('div', {
+                        style: {
+                            color: "green"
+                        }
+                    },['hello','world'])
+            }, */
+  /*           render(proxy) { // 之前是数组,第二次渲染 空文本
+                return proxy.flag.value ?
+                    h('div', { 
+                        style: {
+                            color: 'red'
+                        }
+                    },['hello','world']) :
+                    h('div', {
+                        style: {
+                            color: "green"
+                        }
+                    })
+            }, */
+       /*      render(proxy) { // 之前是空文本,第二次有值渲染是有文本的情况
+                return proxy.flag.value ?
+                    h('div', {
+                        style: {
+                            color: 'red'
+                        }
+                    }) :
+                    h('div', {
+                        style: {
+                            color: "green"
+                        }
+                    }, 'world2')
+            }, */
+            /*             render(proxy) { // 之前有文本值,后来没值
+                            return proxy.flag.value ?
+                                h(
+                                    'div',
+                                    {
+                                        style: {
+                                             color: 'red'
+                                        }
+                                    },
+                                    'hello1'
+                                ) :
+                                h(  
+                                    'div', 
+                                    {
+                                        style: {
+                                            color: "green"
+                                        }
+                                    }
+                                )
+                        }, */
+            /*             render(proxy) { // 之前有文本值,现在也有文本值
+                            return proxy.flag.value ?
+                                h('div', {
+                                    style: {
+                                        color: 'red'
+                                    }
+                                }, 'hello1') :
+                                h('div', {
+                                    style: {
+                                        color: "green"
+                                    }
+                                }, 'world2')
+                        }, */
+
+        }
+        let app = createApp(App, {
+            title: 'zf',
+            a: 2
+        })
+        app.mount('#app')
+    </script>
+</body>
+
+</html>

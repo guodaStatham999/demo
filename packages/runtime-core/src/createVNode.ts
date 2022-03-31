@@ -40,7 +40,7 @@ export function createVNode(type, props, children = null) {
 }
 
 export function isVNode(vnode){
-    return !!vnode.__v_isVnode
+    return vnode&& !!vnode.__v_isVnode
 }
 
 export let Text = Symbol()
