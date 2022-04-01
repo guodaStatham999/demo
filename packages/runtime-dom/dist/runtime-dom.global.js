@@ -423,7 +423,6 @@ var VueRuntimeDOM = (function (exports) {
                     // 可以做更新的时候,做diff算法
                     let prevTree = instance.subTree; // 上次的树
                     let nextTree = instance.render.call(proxy, proxy);
-                    console.log(333);
                     patch(prevTree, nextTree, container);
                 }
             };
@@ -471,7 +470,6 @@ var VueRuntimeDOM = (function (exports) {
                 // 都成为了虚拟节点后,使用patch创建元素
                 patch(null, child, container); // 如果是文本节点,在patch里有switch区分,然后做特殊处理(只是把字符串做成了文本)
             }
-            console.log(children);
         };
         let processComponent = (n1, n2, container) => {
             if (n1 === null) {
@@ -481,7 +479,6 @@ var VueRuntimeDOM = (function (exports) {
         };
         let patchProps = (oldProps, newProps, el) => {
             // 比对属性
-            console.log(oldProps, newProps);
             // 相同直接返回
             if (oldProps === newProps)
                 return;
@@ -506,6 +503,11 @@ var VueRuntimeDOM = (function (exports) {
             for (let i = 0; i < children.length; i++) {
                 unmout(children[i]); // 每个都卸载掉 dom
             }
+        };
+        let patchKeyedChildren = (c1, c2, el) => {
+            console.log(c1);
+            console.log(c2);
+            console.log(el);
         };
         let patchChildren = (n1, n2, el) => {
             let c1 = n1 && n1.children; // 老儿子
@@ -535,7 +537,10 @@ var VueRuntimeDOM = (function (exports) {
                 // 现在这里面就都是数组了
                 if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
                     // 2.说明之前是数组,现在也是数组 ******
-                    if (currentShapeFlag & 16 /* ARRAY_CHILDREN */) ;
+                    if (currentShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                        // 比对两个数组的差异
+                        patchKeyedChildren(c1, c2, el);
+                    }
                     else {
                         // 之前是数组, 现在不是数组-就是空文本 => 需要把之前的都干掉
                         unmoutChildren(c1);
