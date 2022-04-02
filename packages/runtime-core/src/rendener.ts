@@ -78,7 +78,7 @@ export function createRenderer(renderOptions) {
         setupRenderEffect(initialVnode, instance, container) // 渲染的effect
 
     }
-    let mountElement = (vnode, container) => { // 把虚拟节点挂载到真实节点上.
+    let mountElement = (vnode, container,anchor) => { // 把虚拟节点挂载到真实节点上.
         // vnode可能是字符串,可以可能是对象数组/字符串数组,因为在h方法的时候区分了
         let { type, props, children, ShapeFlag } = vnode; // 获取节点的类型 属性 儿子的形状= 文本,数组
         let el = vnode.el = hostCreateElement(type);
@@ -98,7 +98,7 @@ export function createRenderer(renderOptions) {
         }
 
 
-        hostInsert(el,container)
+        hostInsert(el,container,anchor)
     }
 
 
@@ -157,11 +157,73 @@ export function createRenderer(renderOptions) {
         }
     }
 
-    let patchKeyedChildren = (c1,c2,el)=>{ // 处理带key的节点
-        console.log(c1);
-        console.log(c2);
-        console.log(el);
+    let patchKeyedChildren = (c1,c2,container)=>{ // 处理带key的节点
+        // 永远记住,是比对的索引
+        let e1 = c1.length -1; // 老儿子最后一个数值的索引
+        let e2 = c2.length -1; // 新儿子最后一个数值的索引
+        let i  = 0; // 指针i,从头开始用,每次循环+1, 直到e1或者e2的较短长度为止. ---多的就是另外一次循环的值?
+
+
+        // 1. sync from start 从头开始比较
+        while(i <= e1 && i <=e2){ 
+            /* 
+            概念: e1或者e2里,只循环最短值就行 多余的从后面循环
+            代码: i指针和e1或e2的指针重合就结束循环
+            */
+            let n1 = c1[i];
+            let n2 = c2[i];
+            
+            if(isSameVNodeType(n1,n2)){// 判断类型相同
+                patch(n1,n2,container); // 递归判断孩子和属性是否相同
+            }else{
+                break; // 不同就打断循环了
+            }
+            i++
+        }
         
+        // 2. sync from end 从尾比较 其实就是倒叙比较
+        while(i <= e1 && i <=e2){ 
+            let n1 = c1[e1]; // 取值不是使用索引,而是使用孩子总数,就是最后一个
+            let n2 = c2[e2]; // 取值不是使用索引,而是使用孩子总数,就是最后一个
+            
+            if(isSameVNodeType(n1,n2)){// 判断类型相同
+                patch(n1,n2,container); // 递归判断孩子和属性是否相同
+            }else{
+                break; // 不同就打断循环了
+            }
+            e1--;
+            e2--; // 和sync from start 区别就是这里
+        }
+        // console.log(e1,e2,i,'------');  // 定位了除了头部和尾部的节点
+
+
+        // 3. common sequent mount(同序列挂载)  
+        // 此时的i和e1,e2分别是  两个数组的前置索引和后置索引 也就是空出来中间没办法比对的索引
+        console.log(i,e1,e2,'------');  // 定位了除了头部和尾部的节点
+        // 看i和e1的区别,如果i>e1(老儿子),说明新索引大于老儿子的数量,就有新增元素 
+        // 新增的元素 就是i 和e2(新儿子)之间的内容就是新增的
+        if(i > e1){
+            // 说明有新增的元素
+            if(i<=e2){
+                let nextPos = e2+1;
+                // 取e2的下一个元素 如果下一个没有 则长度和当前c2的长度相同 说明追加在后面
+                // 取e2的下一个元素 如果下一个有值 说明追加在anchor前面
+                let anchor=   nextPos < c2.length ? c2[nextPos].el : null;
+                
+                while(i <= e2){ // 把之间的差距都新增 
+                    patch(null,c2[i],container,anchor); // 没有参照物,就是appendChild.所以-1的bug就会出现 50: diff算法基本比对优化
+                    i++;
+                }
+            }
+        }else if(i > e2 ){ // 老的元素多, 新的元素少,,少出掉多的元素
+            // 4.common sequence + unmount
+            while(i <=e1){
+                unmout(c1[i]);
+                i++;
+            }
+            
+        }
+
     }
 
     let patchChildren = (n1,n2,el)=>{ // 用新得儿子n2和老的儿子n1 进行比对, 比对后更新容器元素
@@ -225,10 +287,10 @@ export function createRenderer(renderOptions) {
         // 比较孩子 => diff孩子 => 有很多情况 ,我们的diff算法是同级别比较. 就是一个树形结构. 就是A根下面有b和c   A1根下有b1和c1 A和A1比较,b,c和b1,c1比较
         patchChildren(n1,n2,el); // 用新得儿子n2和老的儿子n1 进行比对
     }
-    let processElement = (n1, n2, container) => {
+    let processElement = (n1, n2, container,anchor) => {
         if (n1 === null) {
             // 元素的初始化,因为首个元素是空
-            mountElement(n2, container)
+            mountElement(n2, container,anchor)
         } else {
             // 元素的diff算法 
             patchElement(n1,n2); // 更新两个元素之间的差异
@@ -250,7 +312,7 @@ export function createRenderer(renderOptions) {
         hostRemove(vnode.el)
     }
 
-    let patch = (n1, n2, container) => {
+    let patch = (n1, n2, container,anchor = null) => {
 
         // 第一种: 两个元素完全没有关系
         if(n1 && !isSameVNodeType(n1,n2)){ // 是否相同节点,如果是相同节点走diff. 不是相同节点删除原来dom节点,并且把n1参数清空为null,
@@ -270,7 +332,7 @@ export function createRenderer(renderOptions) {
                 if (ShapeFlag & ShapeFlags.COMPONENT) { // 组件需要处理
                     processComponent(n1, n2, container)
                 } else if (ShapeFlag & ShapeFlags.ELEMENT) { // 如果当前类型是元素的话
-                    processElement(n1, n2, container)
+                    processElement(n1, n2, container,anchor)
                 }
         }
         // switch (type) {

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <!-- 自己写的 -->
+    <script src="../dist/runtime-dom.global.js"></script>
+
+
+    <!-- vue3.2源码打包后的代码,github下载的 -->
+    <!-- <script src="./runtime-dom.global.js"></script> -->
+    <script>
+        let {
+            createApp,
+            h,
+            ref
+        } = VueRuntimeDOM;
+
+        let App = {
+            props: {
+                title: {}
+            },
+            setup(props, ctx) {
+                let flag = ref(true);
+                setTimeout(() => {
+                    flag.value = !flag.value
+                }, 2000)
+                return {
+                    flag
+                }
+            },
+      
+            // bug是c在前就是 会出现老孩子 索引-1的情况 => 解决办法,e2的下个元素如果有就作为参照物. 
+            render(proxy) { // 之前是没有,第二次渲染 文本
+                return proxy.flag.value ?
+                    h('div', {},
+                    [
+                        h('li',{key:'a'},'a'),
+                        h('li',{key:'b'},'b'),
+                    ]
+                    ) :
+                    h('div', {},
+                    [
+                    h('li',{key:'c'},'c'),
+
+                        h('li',{key:'a'},'a'),
+                        h('li',{key:'b'},'b'),
+                    ]
+                    )
+            }
+        }
+        let app = createApp(App, {
+            title: 'zf',
+            a: 2
+        })
+        app.mount('#app')
+    </script>
+</body>
+
+</html>

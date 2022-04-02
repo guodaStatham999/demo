@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <!-- 自己写的 -->
+    <script src="../dist/runtime-dom.global.js"></script>
+
+
+    <!-- vue3.2源码打包后的代码,github下载的 -->
+    <!-- <script src="./runtime-dom.global.js"></script> -->
+    <script>
+        let {
+            createApp,
+            h,
+            ref
+        } = VueRuntimeDOM;
+
+        let App = {
+            props: {
+                title: {}
+            },
+            setup(props, ctx) {
+                let flag = ref(true);
+                setTimeout(() => {
+                    flag.value = !flag.value
+                }, 2000)
+                return {
+                    flag
+                }
+            },
+            /* 
+            两个孩子的比对: 
+             1. 前前比较
+             2. 后比较
+             3. 从索引位置到索引位置的比较
+            */
+            render(proxy) { // 之前是没有,第二次渲染 文本
+                return proxy.flag.value ?
+                    h('div', {},
+                    [
+                        h('li',{key:'a'},'a'),
+                        h('li',{key:'b'},'b'),
+                        h('li',{key:'c'},'c'),
+                    ]
+                    ) :
+                    h('div', {},
+                    [
+                        h('li',{key:'d'},'d'),
+                        h('li',{key:'e'},'e'),
+                        h('li',{key:'b'},'b'),
+                        h('li',{key:'c'},'c'),
+                    ]
+                    )
+            }
+        }
+        let app = createApp(App, {
+            title: 'zf',
+            a: 2
+        })
+        app.mount('#app')
+    </script>
+</body>
+
+</html>
