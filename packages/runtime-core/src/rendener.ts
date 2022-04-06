@@ -199,7 +199,7 @@ export function createRenderer(renderOptions) {
 
         // 3. common sequent mount(同序列挂载)  
         // 此时的i和e1,e2分别是  两个数组的前置索引和后置索引 也就是空出来中间没办法比对的索引
-        console.log(i,e1,e2,'------');  // 定位了除了头部和尾部的节点
+        // console.log(i,e1,e2,'------');  // 定位了除了头部和尾部的节点
         // 看i和e1的区别,如果i>e1(老儿子),说明新索引大于老儿子的数量,就有新增元素 
         // 新增的元素 就是i 和e2(新儿子)之间的内容就是新增的
         if(i > e1){
@@ -226,8 +226,8 @@ export function createRenderer(renderOptions) {
 
 
         // 5. unknown sequence
-        // s1/s2是新老孩子的左边
-        // e1/e2是老老孩子的右边
+        // s1/s2是老/新孩子的左边
+        // e1/e2是老/新孩子的索引
         // c1就是老孩子的数组
         // c2就是新孩子的数组
         let s1 = i; // 老的孩子的列表
@@ -240,7 +240,30 @@ export function createRenderer(renderOptions) {
             keyToNewIndexMap.set(child.key,i); // 每个孩子的key做索引,i做值(每个新孩子的索引做值)
         }
 
-        console.log(keyToNewIndexMap);
+
+
+        // 做一个数组,记录新增的元素. 直接填充0 ,任何一个有值,就改为值.  最后判定非0的都是新增的索引.
+        let toBePatched = e2- s2 +1; // 新孩子长度 - 新孩子索引 + 1
+        let newIndextoOldMapIndex  = new Array(toBePatched).fill(0); // 把toBePatched作为数组长度,每个填充为0;
+
+        
+
+        // 拿老的每一个节点,去映射表里找;
+        for(let i=s1; i<=e1;i++){
+            let prevChild = c1[i];
+            let newIndex = keyToNewIndexMap.get(prevChild.key);
+            // console.log(newIndex);
+            if(newIndex === undefined){
+                unmout(prevChild) // 老的元素里有,但是新列表里没有. 就删除掉这个元素
+            }else{
+                // 这里面存储的是老节点的索引, 5,3,4,0是老索引里+1的值. => 第一个5是5,实际是循环老数组,到了e 这里的时候是老节点里的索引4+1; => 总结: 还是左边是新节点,循环的是老节点,每找到一个新节点,就把老数组里的位置放到新数组里存储.
+                // newIndextoOldMapIndex[newIndex - s2]这是新索引的位置, 右边i+1是老索引的位置(可能不太对,但是可以对比一下---后面再看还是对的)
+                newIndextoOldMapIndex[newIndex - s2] = i +1; // 新索引的数组对照的索引部分,放到[0,0,0]对照老索引里,找到新增的元素 // + 1保证永远不会填写0,至少是1. 后面使用的时候要减少1.
+
+            }   
+        }
+        
+        
         
 
 
