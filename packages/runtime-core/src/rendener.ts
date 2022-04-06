@@ -224,6 +224,28 @@ export function createRenderer(renderOptions) {
             
         }
 
+
+        // 5. unknown sequence
+        // s1/s2是新老孩子的左边
+        // e1/e2是老老孩子的右边
+        // c1就是老孩子的数组
+        // c2就是新孩子的数组
+        let s1 = i; // 老的孩子的列表
+        let s2= i; // 新的孩子的列表
+
+        // 根据新的节点创建一个映射表,用老的列表去里面找有没有, 有则复用.没有就删除元素  最后新的就是追加元素
+        let keyToNewIndexMap  = new Map(); // key和索引做一个map映射表
+        for(let i = s2; i<=e2; i++){ // s2开始(从新孩子左边开始) 到e2结束(老孩子的右边)
+            let child = c2[i]; // 新孩子循环每一个
+            keyToNewIndexMap.set(child.key,i); // 每个孩子的key做索引,i做值(每个新孩子的索引做值)
+        }
+
+        console.log(keyToNewIndexMap);
+        
+
+
+
+        
     }
 
     let patchChildren = (n1,n2,el)=>{ // 用新得儿子n2和老的儿子n1 进行比对, 比对后更新容器元素
