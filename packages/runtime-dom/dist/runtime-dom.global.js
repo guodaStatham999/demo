@@ -538,10 +538,10 @@ var VueRuntimeDOM = (function (exports) {
                 e1--;
                 e2--; // 和sync from start 区别就是这里
             }
-            // console.log(e1,e2,i,'------');  // 定位了除了头部和尾部的节点
+            // 1console.log(e1,e2,i,'------');  // 定位了除了头部和尾部的节点
             // 3. common sequent mount(同序列挂载)  
             // 此时的i和e1,e2分别是  两个数组的前置索引和后置索引 也就是空出来中间没办法比对的索引
-            // console.log(i,e1,e2,'------');  // 定位了除了头部和尾部的节点
+            // 1console.log(i,e1,e2,'------');  // 定位了除了头部和尾部的节点
             // 看i和e1的区别,如果i>e1(老儿子),说明新索引大于老儿子的数量,就有新增元素 
             // 新增的元素 就是i 和e2(新儿子)之间的内容就是新增的
             if (i > e1) {
@@ -569,22 +569,24 @@ var VueRuntimeDOM = (function (exports) {
             // e1/e2是老/新孩子的索引
             // c1就是老孩子的数组
             // c2就是新孩子的数组
-            let s1 = i; // 老的孩子的列表
-            let s2 = i; // 新的孩子的列表
+            let s1 = i; // 老的孩子的列表的索引
+            let s2 = i; // 新的孩子的列表的索引
             // 根据新的节点创建一个映射表,用老的列表去里面找有没有, 有则复用.没有就删除元素  最后新的就是追加元素
+            // 这个地方存储新key,用来查看老的有没有可以复用新的.
             let keyToNewIndexMap = new Map(); // key和索引做一个map映射表
             for (let i = s2; i <= e2; i++) { // s2开始(从新孩子左边开始) 到e2结束(老孩子的右边)
                 let child = c2[i]; // 新孩子循环每一个
                 keyToNewIndexMap.set(child.key, i); // 每个孩子的key做索引,i做值(每个新孩子的索引做值)
             }
             // 做一个数组,记录新增的元素. 直接填充0 ,任何一个有值,就改为值.  最后判定非0的都是新增的索引.
-            let toBePatched = e2 - s2 + 1; // 新孩子长度 - 新孩子索引 + 1
+            let toBePatched = e2 - s2 + 1; // 新孩子长度 - 新孩子索引 + 1 => 总结计算:就是 新孩子左边开始的位置
             let newIndextoOldMapIndex = new Array(toBePatched).fill(0); // 把toBePatched作为数组长度,每个填充为0;
-            // 拿老的每一个节点,去映射表里找;
+            // 拿老的每一个节点,去映射表里找; 
+            // http://www.javascriptpeixun.cn/course/3365/task/254218/show   这个地方要是不懂还是看看51集
             for (let i = s1; i <= e1; i++) {
                 let prevChild = c1[i];
                 let newIndex = keyToNewIndexMap.get(prevChild.key);
-                // console.log(newIndex);
+                // 1console.log(newIndex);
                 if (newIndex === undefined) {
                     unmout(prevChild); // 老的元素里有,但是新列表里没有. 就删除掉这个元素
                 }
@@ -592,7 +594,27 @@ var VueRuntimeDOM = (function (exports) {
                     // 这里面存储的是老节点的索引, 5,3,4,0是老索引里+1的值. => 第一个5是5,实际是循环老数组,到了e 这里的时候是老节点里的索引4+1; => 总结: 还是左边是新节点,循环的是老节点,每找到一个新节点,就把老数组里的位置放到新数组里存储.
                     // newIndextoOldMapIndex[newIndex - s2]这是新索引的位置, 右边i+1是老索引的位置(可能不太对,但是可以对比一下---后面再看还是对的)
                     newIndextoOldMapIndex[newIndex - s2] = i + 1; // 新索引的数组对照的索引部分,放到[0,0,0]对照老索引里,找到新增的元素 // + 1保证永远不会填写0,至少是1. 后面使用的时候要减少1.
+                    // 比较两个节点的属性等.
+                    patch(prevChild, c2[newIndex], container); // 填表后还要比对属性和儿子
                 }
+            }
+            // 位置做插入
+            // 使用toBepatched倒叙插入
+            for (let i = toBePatched - 1; i >= 0; i--) { //  toBePatched - 1就是索引,不减1就是长度 // i>=0是要倒叙,反向插入
+                let lastIndex = s2 + i; // s2 + i 就是 左侧的已经比对的索引 + 循环的索引,就是整个数组//  老师说的,不太懂啥事: h的索引
+                let lastChild = c2[lastIndex]; // 新孩子里,没排序里的最右侧的孩子
+                let anchor = lastIndex + 1 < c2.length ? c2[lastIndex + 1].el : null; // 如果最后一个索引+ 1还有值, 说明不是数组最后一位,后面还有人可以取值. 如果后面没值了,说明是最后一个.  可能就是dom的appendChild和insert有anchor的区别
+                if (newIndextoOldMapIndex[i] === 0) { // 拿着新数组里的索引去老索引里找,有就是有可复用元素,没有就是不存在元素
+                    // 这里if使用patch是因为不存在这个节点,而下面的else是已经存在节点,只是修改dom元素
+                    patch(null, c2[lastIndex], container, anchor); // 如果是新增元素,就是使用patch创建一个元素,插入当前元素里
+                }
+                else {
+                    // 这里可以进行性能优化 因为有一些节点不需要移动,到那时还是全部插入了一遍.
+                    // 最长递增子序列,减少dom的插入操作
+                    // 此处开始倒叙的插入.每一个孩子(这些孩子都是复用的)
+                    hostInsert(lastChild.el, container, anchor); // 将列表倒叙的插入
+                }
+                // hostInsert(c2[newIndextoOldMapIndex[i]],container,)
             }
         };
         let patchChildren = (n1, n2, el) => {
