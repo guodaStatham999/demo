@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        /* 
+        总结:
+
+        用两个数组记录: 
+            数组1: 最终返回的结果 result -- 里面记录的索引有问题. 最终会使用数组2修改为正确的索引
+            数组2: 全程记录每个索引位置下真实索引(上一次的索引位置) -- 就是原数组克隆出来的等长数组,只是每次遇到追加/二分查找的索引都要修改这个数组里的索引对应的值,为上一次的索引--这样就会在最后的循环有迹可循找到每个元素上一个索引
+        1. 每次碰到比自己大的就追加在后面
+        2. 使用二分查找找到应该替换的索引
+        3. 最后使用前驱节点数组preNode,记录每个值的真正应该记录的索引
+        */
+    </script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script>
+        /* 
+最常错误的点: 
+    2.3.1.5.6.8.7.9.4 => 2.3.5.6.7.9是连续的,而前面代码计算出来的是 1.3.4.6.7.9 就会计算错误1,因为他就不是连续的了,因为只有2-3-5是连续的,而1是后置的不能要了. 所以使用前驱节点记录上一次是谁.
+
+解决办法: 
+    创建一个等长数组,记录前一个人是谁. 也就是数组preNode -- 这个方式叫 前驱节点-永远记住前一个人是谁
+    每次放进来一个数字,匹配一下自己前面放入的是谁(记录索引) 
+    如果自己前面没有人,就不要记录(首个数字不能被替换)
+ 
+    最后倒叙p数组, 就是正确的列表
+
+总结: 就是记录的前一个人的位置,里面爱是谁是谁,不要管. 最后倒叙这个位置,里面装的是谁就是真正内容
+*/
+
+
+        // 获取索引
+        function getSequence(arr) {
+            let len = arr.length; // 获取长度
+            let result = [0]; // 这里放的是索引,0就是arr的第一个值 => 1
+            let lastIndex; // 最后一个值的索引
+            let preNode = arr.slice(0); // 用来记录前驱节点的索引,用来追溯正确的顺序
+            // 二分查找的三个指针
+            let start;
+            let end;
+            let middle;
+
+            // 1. 直接看元素 如果比当前的末尾大,直接追加
+            for (let i = 0; i < len; i++) {
+                console.log('xxxx');
+                let arrI = arr[i]; // 获取的是每一个值,但是这里命名为arrI感觉不符合. 而且结果也是值,并不是索引
+                if (arrI !== 0) { // 如果是0就不记录了,因为这个是新增.不用考虑
+                    lastIndex = result[result.length - 1]; // 获取结果集中的最后一个
+                    if (arr[lastIndex] < arrI) { // 当前项和最后一项比较大小,就追加
+
+                        // 记录当前元素的前一个人的索引
+                        preNode[i] = lastIndex;
+
+                        result.push(i);
+                        continue
+                    }
+                }
+
+                // 2. 二分查找
+                start = 0;
+                end = result.length - 1;
+                while (start < end) {
+                    middle = ((start + end) / 2) | 0;
+                    if (arr[result[middle]] < arrI) {
+                        start = middle + 1;
+                    } else {
+                        end = middle;
+                    }
+                }
+
+                // console.log(result[start] === middle);
+
+                if (arrI < arr[result[start]]) {
+
+                    // 这里替换之前 应该让当前元素的索引替换
+                    preNode[i] = result[start - 1]; // 用找到的索引,标记到p上 // 感觉这块就是把所以从后到前做个重置
+
+
+                    result[start] = i;
+                }else{
+                    // 只有首次 既不记录使用: 1.末尾追加 也不 2. 二分查找
+                    console.log(333);
+                }
+                // console.log(result);
+
+            }
+
+
+            // 3. 最后从后往前追溯 [2,1,8,4,6,7]
+            let i = result.length; // 拿到最后一个 开始向前追溯
+            let last = result[i - 1]; // 就是索引里最后一个--就是result数组的最后一个
+            // debugger // [2,1,8,4,6,7]
+            while (i-- > 0) { // 倒叙往前查找 // 通过前驱节点 找到正确的调用顺序,就是正确值是从从来找来的
+                // 每个索引都是用来更新每个节点 一直换来换去
+                result[i] = last; // 每次换掉result里的值为真正的值 // 最后一项肯定是正确的,所以使用倒叙来从最后一项向前查找
+                last = preNode[last]; //
+            }
+            return result
+        }
+
+        console.log(getSequence([2, 3, 1, 5, 6, 8, 7, 9, 4])); //  索引: [0, 1, 3, 4, 6, 7] => 值: 2,3,5,6,7,9
+    </script>
+</body>
+
+</html>
