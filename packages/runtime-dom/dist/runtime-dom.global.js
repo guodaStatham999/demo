@@ -390,6 +390,63 @@ var VueRuntimeDOM = (function (exports) {
         setupStateFullComponent(instance); // 这个方法的目的就是调用setup函数,得到用户的返回值.扩充setup和render函数 启动带状态的组件
     }
 
+    function getSequence(arr) {
+        let len = arr.length; // 获取长度
+        let result = [0]; // 这里放的是索引,0就是arr的第一个值 => 1
+        let lastIndex; // 最后一个值的索引
+        let preNode = arr.slice(0); // 用来记录前驱节点的索引,用来追溯正确的顺序
+        // 二分查找的三个指针
+        let start;
+        let end;
+        let middle;
+        // 1. 直接看元素 如果比当前的末尾大,直接追加
+        for (let i = 0; i < len; i++) {
+            console.log('xxxx');
+            let arrI = arr[i]; // 获取的是每一个值,但是这里命名为arrI感觉不符合. 而且结果也是值,并不是索引
+            if (arrI !== 0) { // 如果是0就不记录了,因为这个是新增.不用考虑
+                lastIndex = result[result.length - 1]; // 获取结果集中的最后一个
+                if (arr[lastIndex] < arrI) { // 当前项和最后一项比较大小,就追加
+                    // 记录当前元素的前一个人的索引
+                    preNode[i] = lastIndex;
+                    result.push(i);
+                    continue;
+                }
+            }
+            // 2. 二分查找
+            start = 0;
+            end = result.length - 1;
+            while (start < end) {
+                middle = ((start + end) / 2) | 0;
+                if (arr[result[middle]] < arrI) {
+                    start = middle + 1;
+                }
+                else {
+                    end = middle;
+                }
+            }
+            // console.log(result[start] === middle);
+            if (arrI < arr[result[start]]) {
+                // 这里替换之前 应该让当前元素的索引替换
+                preNode[i] = result[start - 1]; // 用找到的索引,标记到p上 // 感觉这块就是把所以从后到前做个重置
+                result[start] = i;
+            }
+            else {
+                // 只有首次 既不记录使用: 1.末尾追加 也不 2. 二分查找
+                console.log(333);
+            }
+            // console.log(result);
+        }
+        // 3. 最后从后往前追溯 [2,1,8,4,6,7]
+        let i = result.length; // 拿到最后一个 开始向前追溯
+        let last = result[i - 1]; // 就是索引里最后一个--就是result数组的最后一个
+        // debugger // [2,1,8,4,6,7]
+        while (i-- > 0) { // 倒叙往前查找 // 通过前驱节点 找到正确的调用顺序,就是正确值是从从来找来的
+            // 每个索引都是用来更新每个节点 一直换来换去
+            result[i] = last; // 每次换掉result里的值为真正的值 // 最后一项肯定是正确的,所以使用倒叙来从最后一项向前查找
+            last = preNode[last]; //
+        }
+        return result;
+    }
     // 所有渲染逻辑,更新+ 挂载+ 处理+ 挂载孩子+ 挂载元素
     // runtime-core不依赖平台代码,因为平台代码都是传入的(比如runtime-dom)
     function createRenderer(renderOptions) {
@@ -598,6 +655,9 @@ var VueRuntimeDOM = (function (exports) {
                     patch(prevChild, c2[newIndex], container); // 填表后还要比对属性和儿子
                 }
             }
+            let queue = getSequence(newIndextoOldMapIndex); // 求出队列 [1,2]=> 索引是连续的,且不用动的
+            console.log(queue);
+            let j = queue.length - 1; // 最长递增子序列的末尾索引
             // 位置做插入
             // 使用toBepatched倒叙插入
             for (let i = toBePatched - 1; i >= 0; i--) { //  toBePatched - 1就是索引,不减1就是长度 // i>=0是要倒叙,反向插入
@@ -611,8 +671,14 @@ var VueRuntimeDOM = (function (exports) {
                 else {
                     // 这里可以进行性能优化 因为有一些节点不需要移动,到那时还是全部插入了一遍.
                     // 最长递增子序列,减少dom的插入操作
-                    // 此处开始倒叙的插入.每一个孩子(这些孩子都是复用的)
-                    hostInsert(lastChild.el, container, anchor); // 将列表倒叙的插入
+                    // 此处开始倒叙的插入.每一个孩子(这些孩子都是复用的) -- 直接插入是性能损耗大,需要最长递增子序列后 dom操作改到最少再操作
+                    // 3-2-1-0 => 倒叙 
+                    if (i !== queue[j]) { // 索引不同,说明没法优化直接插入.
+                        hostInsert(lastChild.el, container, anchor); // 将列表倒叙的插入
+                    }
+                    else { // 相同的索引说明可以复用
+                        j--; // 相当于当前元素直接操作,就把循环减少就行.  // 这里是个优化,标识元素不需要移动了
+                    }
                 }
                 // hostInsert(c2[newIndextoOldMapIndex[i]],container,)
             }
